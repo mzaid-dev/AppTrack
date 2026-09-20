@@ -1,0 +1,6 @@
+{
+  "name": "AppTrack",
+  "description": "Track all your apps in one place. Premium client dashboard for monitoring live store availability.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

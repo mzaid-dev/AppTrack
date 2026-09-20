@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- AppTrack Primary Brand Mark (Row 1, Icon 2: 4-App Grid with Check Magnifier) -->
+    <!-- Safe zone: 21 to 87 on both axes (centered at 54, 54) -->
+
+    <!-- ================= 1. TOP-LEFT TILE: Vibrant Royal Blue ================= -->
+    <path
+        android:pathData="M35,27 L45,27 A6,6 0 0,1 51,33 L51,43 A6,6 0 0,1 45,49 L35,49 A6,6 0 0,1 29,43 L29,33 A6,6 0 0,1 35,27 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="29"
+                android:startY="27"
+                android:endX="51"
+                android:endY="49"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#2563EB" />
+                <item android:offset="1.0" android:color="#1D4ED8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Top-Left Subtle Inner Gloss Highlight -->
+    <path
+        android:pathData="M34,30 L42,30"
+        android:strokeColor="#5093C5FD"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- ================= 2. TOP-RIGHT TILE: Sky Blue Gradient ================= -->
+    <path
+        android:pathData="M63,27 L73,27 A6,6 0 0,1 79,33 L79,43 A6,6 0 0,1 73,49 L63,49 A6,6 0 0,1 57,43 L57,33 A6,6 0 0,1 63,27 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="57"
+                android:startY="27"
+                android:endX="79"
+                android:endY="49"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#60A5FA" />
+                <item android:offset="1.0" android:color="#3B82F6" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Top-Right Subtle Inner Gloss Highlight -->
+    <path
+        android:pathData="M62,30 L70,30"
+        android:strokeColor="#60FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- ================= 3. BOTTOM-LEFT TILE: Deep Cobalt Blue ================= -->
+    <path
+        android:pathData="M35,55 L45,55 A6,6 0 0,1 51,61 L51,71 A6,6 0 0,1 45,77 L35,77 A6,6 0 0,1 29,71 L29,61 A6,6 0 0,1 35,55 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="29"
+                android:startY="55"
+                android:endX="51"
+                android:endY="77"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#1D4ED8" />
+                <item android:offset="1.0" android:color="#1E40AF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Bottom-Left Subtle Inner Accent Line -->
+    <path
+        android:pathData="M34,58 L42,58"
+        android:strokeColor="#4060A5FA"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- ================= 4. BOTTOM-RIGHT: MAGNIFYING GLASS & VERIFIED CHECK ================= -->
+
+    <!-- Magnifying Glass Diagonal Handle (pointing bottom-right) -->
+    <path
+        android:pathData="M75,73 L83,81"
+        android:strokeWidth="5.0"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="75"
+                android:startY="73"
+                android:endX="83"
+                android:endY="81"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#1D4ED8" />
+                <item android:offset="1.0" android:color="#1E3A8A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Magnifying Outer Circular Ring (Solid Cobalt Blue) -->
+    <path
+        android:pathData="M66,64 m -13,0 a 13,13 0 1,0 26,0 a 13,13 0 1,0 -26,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="53"
+                android:startY="51"
+                android:endX="79"
+                android:endY="77"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#2563EB" />
+                <item android:offset="1.0" android:color="#1D4ED8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner Circle Badge (Vibrant Emerald / Mint Green) -->
+    <path
+        android:pathData="M66,64 m -9,0 a 9,9 0 1,0 18,0 a 9,9 0 1,0 -18,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="57"
+                android:startY="55"
+                android:endX="75"
+                android:endY="73"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#10B981" />
+                <item android:offset="1.0" android:color="#059669" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Bold Verified White Checkmark Inside Inner Badge -->
+    <path
+        android:pathData="M61.8,64.2 L64.8,67.2 L70.5,60.8"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+</vector>
