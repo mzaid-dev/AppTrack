@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.google.firebase.auth.FirebaseAuth
 import java.util.UUID
 
 sealed class AppScreen {
@@ -404,6 +405,11 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun logout() {
         viewModelScope.launch {
+            try {
+                FirebaseAuth.getInstance().signOut()
+            } catch (e: Exception) {
+                // Firebase not initialized or offline
+            }
             repository.clearSession()
             val session = UserSessionEntity(
                 id = 1,
