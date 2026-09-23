@@ -21,14 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -471,7 +470,7 @@ fun ProjectItemCard(
                             modifier = Modifier.testTag("btn_store_link_${project.id}")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.OpenInNew,
+                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = "View Store",
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
@@ -495,7 +494,7 @@ fun ProjectItemCard(
                             modifier = Modifier.testTag("btn_client_view_store_${project.id}")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.OpenInNew,
+                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = "Open Store",
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp)
@@ -574,7 +573,7 @@ fun ContractCard(
                 }
 
                 Icon(
-                    imageVector = Icons.Default.ArrowForward,
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "Open Contract",
                     tint = if (isSelected) DiscordBlurple else DiscordTextMuted,
                     modifier = Modifier.size(18.dp)

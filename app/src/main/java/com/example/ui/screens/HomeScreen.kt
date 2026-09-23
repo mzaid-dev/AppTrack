@@ -46,17 +46,16 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
@@ -455,7 +454,7 @@ fun AppTrackTopBar(
                     .testTag("user_logout_btn")
             ) {
                 Icon(
-                    imageVector = Icons.Default.Logout,
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = "Logout",
                     tint = AppTrackTextMuted,
                     modifier = Modifier.size(19.dp)
@@ -1031,7 +1030,7 @@ fun AppTrackRow(
                         .testTag("open_store_btn_${project.id}")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.OpenInNew,
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                         contentDescription = "Open in Google Play",
                         tint = AppTrackPrimary,
                         modifier = Modifier.size(15.dp)
@@ -1077,7 +1076,7 @@ fun AppTrackIconBox(
         when {
             cleanTitle.contains("spotify") -> Triple(Color(0xFF1DB954), Icons.Default.MusicNote, null)
             cleanTitle.contains("youtube") -> Triple(Color(0xFFFF0000), Icons.Default.PlayArrow, null)
-            cleanTitle.contains("whatsapp") -> Triple(Color(0xFF25D366), Icons.Default.Chat, null)
+            cleanTitle.contains("whatsapp") -> Triple(Color(0xFF25D366), Icons.AutoMirrored.Filled.Chat, null)
             cleanTitle.contains("duolingo") -> Triple(Color(0xFF58CC02), Icons.Default.School, null)
             cleanTitle.contains("reddit") -> Triple(Color(0xFFFF4500), Icons.Default.Forum, null)
             cleanTitle.contains("nova") || cleanTitle.contains("wallet") -> Triple(Color(0xFF0284C7), Icons.Default.AccountBalanceWallet, null)

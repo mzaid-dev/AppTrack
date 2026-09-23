@@ -28,7 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Tag
@@ -444,7 +444,7 @@ fun DiscordMessageItem(
                             shape = RoundedCornerShape(6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.OpenInNew,
+                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(14.dp)

@@ -30,7 +30,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.RocketLaunch
@@ -235,7 +235,7 @@ fun ClientPortalScreen(
                                                 colors = ButtonDefaults.buttonColors(containerColor = DiscordLiveGreen),
                                                 shape = RoundedCornerShape(8.dp)
                                             ) {
-                                                Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
+                                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text("Open on Store", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }

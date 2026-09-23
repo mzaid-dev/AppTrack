@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -36,9 +35,6 @@ import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LoginScreen
 import com.example.ui.screens.SplashScreen
 import com.example.ui.theme.AppTrackTheme
-import com.example.ui.theme.DiscordMainBg
-import com.example.ui.theme.LaunchPulseTheme
-import com.example.ui.theme.SoftBg
 import com.example.util.NotificationHelper
 
 class MainActivity : ComponentActivity() {
@@ -308,9 +304,4 @@ fun AppTrackApp(
             }
         )
     }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    androidx.compose.material3.Text(text = "Hello $name!", modifier = modifier)
 }
