@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CheckCircle
@@ -30,7 +31,7 @@ import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.RocketLaunch
-import androidx.compose.material.icons.filled.SwapHoriz
+
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -55,7 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.model.ContractEntity
+
 import com.example.data.model.ProjectEntity
 import com.example.ui.theme.DiscordAlertRed
 import com.example.ui.theme.DiscordBlurple
@@ -143,19 +144,14 @@ fun DiscordTopBar(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Role Switcher Pill
+                // Role Badge (Client View — static, no switching)
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (currentRole == "DEVELOPER") DiscordBlurple.copy(alpha = 0.2f) else DiscordLiveGreen.copy(alpha = 0.2f))
-                        .border(
-                            1.dp,
-                            if (currentRole == "DEVELOPER") DiscordBlurple else DiscordLiveGreen,
-                            RoundedCornerShape(20.dp)
-                        )
-                        .clickable { onRoleClick() }
+                        .background(DiscordLiveGreen.copy(alpha = 0.2f))
+                        .border(1.dp, DiscordLiveGreen, RoundedCornerShape(20.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("role_switcher_pill"),
+                        .testTag("role_badge"),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -163,21 +159,14 @@ fun DiscordTopBar(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (currentRole == "DEVELOPER") DiscordBlurple else DiscordLiveGreen)
+                                .background(DiscordLiveGreen)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (currentRole == "DEVELOPER") "Dev Mode" else "Client View",
+                            text = "Client View",
                             color = DiscordTextHeader,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.SwapHoriz,
-                            contentDescription = "Switch Mode",
-                            tint = DiscordTextMuted,
-                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -522,108 +511,6 @@ fun ProjectItemCard(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun ContractCard(
-    contract: ContractEntity,
-    isSelected: Boolean,
-    appsCount: Int,
-    gamesCount: Int,
-    onSelect: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) DiscordCardHover else DiscordCard
-        ),
-        shape = RoundedCornerShape(14.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            if (isSelected) 1.5.dp else 1.dp,
-            if (isSelected) DiscordBlurple else DiscordDivider
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable { onSelect() }
-            .testTag("contract_card_${contract.id}")
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = contract.name,
-                        color = DiscordTextHeader,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "Client: ${contract.clientName} (${contract.companyName})",
-                        color = DiscordTextMuted,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Open Contract",
-                    tint = if (isSelected) DiscordBlurple else DiscordTextMuted,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Badges for Apps & Games
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row {
-                    Surface(
-                        color = DiscordDevBlue.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "$appsCount Apps",
-                            color = DiscordDevBlue,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    Surface(
-                        color = DiscordBlurple.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            text = "$gamesCount Games",
-                            color = DiscordBlurpleLight,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-
-                Text(
-                    text = "Live Payout: $${String.format("%,.0f", contract.payoutOnLive)}",
-                    color = DiscordGoldPayout,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     }
