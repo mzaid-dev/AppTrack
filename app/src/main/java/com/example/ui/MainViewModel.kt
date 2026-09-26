@@ -13,6 +13,7 @@ import com.example.data.model.UserSessionEntity
 import com.example.data.repository.AppRepository
 import com.example.data.firebase.FirebaseProjectSync
 import com.example.data.network.LiveStatusChecker
+import com.example.util.SessionManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
+
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.firestore.FirebaseFirestore
 
 sealed class AppScreen {
     object Initializing : AppScreen()
@@ -32,7 +39,10 @@ sealed class AppScreen {
     object CommunityHub : AppScreen()
 }
 
-class MainViewModel(private val repository: AppRepository) : ViewModel() {
+class MainViewModel(
+    private val repository: AppRepository,
+    private val sessionManager: SessionManager
+) : ViewModel() {
 
     val contracts: StateFlow<List<ContractEntity>> = repository.allContracts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -52,12 +62,20 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     val userSession: StateFlow<UserSessionEntity?> = repository.userSession
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // Navigation — starts on Initializing to avoid flashing Login on restore
-    private val _currentScreen = MutableStateFlow<AppScreen>(AppScreen.Initializing)
+    // Dynamic user display name loaded from Firestore "users" collection
+    private val _userName = MutableStateFlow<String>("")
+    val userName: StateFlow<String> = _userName.asStateFlow()
+
+    // Navigation — synchronously initialized based on persistent session!
+    private val _currentScreen = MutableStateFlow<AppScreen>(
+        if (sessionManager.isLoggedIn()) AppScreen.Home else AppScreen.Login
+    )
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
 
     // Selected Contract for client view
-    private val _selectedContractId = MutableStateFlow<String?>(null)
+    private val _selectedContractId = MutableStateFlow<String?>(
+        sessionManager.getContractId().takeIf { it.isNotBlank() }
+    )
     val selectedContractId: StateFlow<String?> = _selectedContractId.asStateFlow()
 
     // Active Category tab (APP / GAME)
@@ -82,6 +100,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     private val _isRefreshingStatus = MutableStateFlow(false)
     val isRefreshingStatus: StateFlow<Boolean> = _isRefreshingStatus.asStateFlow()
 
+    // In-memory set of project IDs currently undergoing status verification
+    private val _checkingProjectIds = MutableStateFlow<Set<String>>(emptySet())
+    val checkingProjectIds: StateFlow<Set<String>> = _checkingProjectIds.asStateFlow()
+
     private val _checkingProgress = MutableStateFlow(Pair(0, 0))
     val checkingProgress: StateFlow<Pair<Int, Int>> = _checkingProgress.asStateFlow()
 
@@ -95,11 +117,38 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Check session on startup — if logged in go straight to Home, else Login
+        // Synchronize persisted session with Room DB and restore state
+        if (sessionManager.isLoggedIn()) {
+            val savedEmail = sessionManager.getUserEmail()
+            val savedRole = sessionManager.getUserRole().ifBlank { "CLIENT" }
+            val savedContractId = sessionManager.getContractId()
+
+            viewModelScope.launch {
+                val entity = UserSessionEntity(
+                    id = 1,
+                    isLoggedIn = true,
+                    role = savedRole,
+                    email = savedEmail,
+                    selectedContractId = savedContractId
+                )
+                repository.saveSession(entity)
+                if (savedContractId.isNotBlank()) {
+                    _selectedContractId.value = savedContractId
+                }
+            }
+            _currentScreen.value = AppScreen.Home
+        }
+
+        // Keep observing repository.userSession in case of database-level updates
         viewModelScope.launch {
             repository.userSession.collect { session ->
-                if (_currentScreen.value == AppScreen.Initializing) {
-                    _currentScreen.value = if (session?.isLoggedIn == true) AppScreen.Home else AppScreen.Login
+                if (session != null && session.isLoggedIn) {
+                    if (!sessionManager.isLoggedIn()) {
+                        sessionManager.saveSession(session.email, session.role, session.selectedContractId)
+                    }
+                    if (_currentScreen.value == AppScreen.Initializing || _currentScreen.value == AppScreen.Login) {
+                        _currentScreen.value = AppScreen.Home
+                    }
                 }
             }
         }
@@ -113,7 +162,127 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     // ───── Session ─────
 
-    fun login(email: String, role: String, contractId: String = "") {
+    fun getUserEmail(): String {
+        return userSession.value?.email?.takeIf { it.isNotBlank() }
+            ?: sessionManager.getUserEmail()
+    }
+
+    fun getUserRole(): String {
+        return userSession.value?.role?.takeIf { it.isNotBlank() }
+            ?: sessionManager.getUserRole()
+    }
+
+    /**
+     * Loads user profile from Firestore "users" collection and pulls only their apps.
+     * Supports both direct document ID (users/email) and auto-ID documents with email field.
+     */
+    fun loadUserData(context: Context, email: String) {
+        if (email.isBlank()) return
+        val cleanEmail = email.trim().lowercase()
+        viewModelScope.launch {
+            // 1. Fetch user display name from Firestore
+            val db = FirebaseFirestore.getInstance()
+            var firestoreName: String? = null
+
+            // Method A: Auto-ID document with email field (matches user documents created with random IDs)
+            try {
+                val querySnap = db.collection("users")
+                    .whereEqualTo("email", cleanEmail)
+                    .limit(1)
+                    .get()
+                    .await()
+                val matchDoc = querySnap.documents.firstOrNull()
+                firestoreName = matchDoc?.getString("name")?.takeIf { it.isNotBlank() }
+                    ?: matchDoc?.getString("displayName")?.takeIf { it.isNotBlank() }
+                    ?: matchDoc?.getString("userName")?.takeIf { it.isNotBlank() }
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Users query by email note: ${e.message}")
+            }
+
+            // Method B: Direct document ID (users/email)
+            if (firestoreName.isNullOrBlank()) {
+                try {
+                    val doc = db.collection("users").document(cleanEmail).get().await()
+                    if (doc.exists()) {
+                        firestoreName = doc.getString("name")?.takeIf { it.isNotBlank() }
+                            ?: doc.getString("displayName")?.takeIf { it.isNotBlank() }
+                            ?: doc.getString("userName")?.takeIf { it.isNotBlank() }
+                    }
+                } catch (e: Exception) {
+                    Log.d("MainViewModel", "Users direct doc note: ${e.message}")
+                }
+            }
+
+            // Method C: Also check if collection is named "clients"
+            if (firestoreName.isNullOrBlank()) {
+                try {
+                    val clientSnap = db.collection("clients")
+                        .whereEqualTo("email", cleanEmail)
+                        .limit(1)
+                        .get()
+                        .await()
+                    val matchDoc = clientSnap.documents.firstOrNull()
+                    firestoreName = matchDoc?.getString("name")?.takeIf { it.isNotBlank() }
+                        ?: matchDoc?.getString("clientName")?.takeIf { it.isNotBlank() }
+                } catch (e: Exception) {
+                    Log.d("MainViewModel", "Clients query note: ${e.message}")
+                }
+            }
+
+            // Method D: Firebase Auth currentUser.displayName
+            if (firestoreName.isNullOrBlank()) {
+                try {
+                    firestoreName = FirebaseAuth.getInstance().currentUser?.displayName?.takeIf { it.isNotBlank() }
+                } catch (e: Exception) {
+                    // Safe
+                }
+            }
+
+            if (!firestoreName.isNullOrBlank()) {
+                _userName.value = firestoreName
+            } else {
+                val raw = email.substringBefore("@")
+                _userName.value = formatCleanName(raw)
+            }
+
+            // 2. Fetch apps for this specific user from Firestore
+            // STRICT SOURCE OF TRUTH: Wipe old local SQLite cache and replace ONLY with this user's apps!
+            try {
+                val paged = FirebaseProjectSync.fetchPageFromFirestore(
+                    context = context,
+                    pageSize = 50L,
+                    currentUserEmail = cleanEmail
+                )
+                if (paged != null) {
+                    repository.clearAllProjects()
+                    if (paged.projects.isNotEmpty()) {
+                        repository.insertProjects(paged.projects)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Initial sync note: ${e.message}")
+            }
+        }
+    }
+
+    private fun formatCleanName(raw: String): String {
+        return raw.replace(".", " ")
+            .replace("_", " ")
+            .split(" ")
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+    }
+
+    fun login(email: String, role: String, contractId: String = "", context: Context? = null) {
+        // 1. Save synchronously to SharedPreferences
+        sessionManager.saveSession(email = email, role = role, contractId = contractId)
+
+        if (contractId.isNotBlank()) {
+            _selectedContractId.value = contractId
+        }
+        _currentScreen.value = AppScreen.Home
+
+        // 2. Persist to Room DB and sync strictly this user's data from Firestore
         viewModelScope.launch {
             val session = UserSessionEntity(
                 id = 1,
@@ -123,21 +292,31 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
                 selectedContractId = contractId
             )
             repository.saveSession(session)
-            if (contractId.isNotBlank()) {
-                _selectedContractId.value = contractId
+            // Clear any old local projects from previous account
+            repository.clearAllProjects()
+            if (context != null) {
+                loadUserData(context, email)
             }
-            _currentScreen.value = AppScreen.Home
         }
     }
 
     fun logout() {
+        // 1. Clear SharedPreferences immediately
+        sessionManager.clearSession()
+        _userName.value = ""
+        _currentScreen.value = AppScreen.Login
+
+        // 2. Sign out of Firebase if initialized
+        try {
+            FirebaseAuth.getInstance().signOut()
+        } catch (e: Exception) {
+            // Safe to ignore
+        }
+
+        // 3. Clear Room DB session and remove all cached projects
         viewModelScope.launch {
-            try {
-                FirebaseAuth.getInstance().signOut()
-            } catch (e: Exception) {
-                // Firebase not initialized or offline — safe to ignore
-            }
             repository.clearSession()
+            repository.clearAllProjects()
             val session = UserSessionEntity(
                 id = 1,
                 isLoggedIn = false,
@@ -146,14 +325,22 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
                 selectedContractId = ""
             )
             repository.saveSession(session)
-            _currentScreen.value = AppScreen.Login
         }
     }
 
     // ───── Home Screen ─────
 
-    fun setHomeTab(tab: String) {
+    private var lastFirestoreDoc: DocumentSnapshot? = null
+    private var hasMorePages: Boolean = true
+    private var isLoadingPage: Boolean = false
+
+    private val _isLoadingNextPage = MutableStateFlow(false)
+    val isLoadingNextPage: StateFlow<Boolean> = _isLoadingNextPage.asStateFlow()
+
+    fun setHomeTab(tab: String, context: Context? = null) {
         _homeSelectedTab.value = tab
+        // Background check for the selected tab without blocking UI or rebuilding list
+        refreshCurrentTab(category = tab, context = context, isBackground = true)
     }
 
     fun setHomeSearchQuery(query: String) {
@@ -165,89 +352,147 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     }
 
     /**
-     * Parallel live-status refresh for all tracked apps/games.
-     * Syncs from Firestore first (if available), then checks Play Store concurrently.
+     * Infinite scroll / pagination: loads next batch from Firestore smoothly for current user.
      */
-    fun refreshAllAppsStatus(context: Context? = null) {
-        if (_isRefreshingStatus.value) return
+    fun loadNextPage(context: Context) {
+        if (isLoadingPage || !hasMorePages) return
+        val currentEmail = getUserEmail()
         viewModelScope.launch {
-            _isRefreshingStatus.value = true
-            _refreshFeedbackMessage.value = null
+            isLoadingPage = true
+            _isLoadingNextPage.value = true
+            try {
+                val pageResult = FirebaseProjectSync.fetchPageFromFirestore(
+                    context = context,
+                    pageSize = 15L,
+                    lastDoc = lastFirestoreDoc,
+                    currentUserEmail = currentEmail
+                )
+                if (pageResult != null) {
+                    if (pageResult.projects.isNotEmpty()) {
+                        val existingIds = projects.value.map { it.id }.toSet()
+                        val newOnly = pageResult.projects.filter { it.id !in existingIds }
+                        if (newOnly.isNotEmpty()) {
+                            repository.insertProjects(newOnly)
+                        }
+                    }
+                    lastFirestoreDoc = pageResult.lastDocument
+                    hasMorePages = pageResult.hasMore
+                }
+            } catch (e: Exception) {
+                Log.d("MainViewModel", "Pagination note: ${e.message}")
+            } finally {
+                isLoadingPage = false
+                _isLoadingNextPage.value = false
+            }
+        }
+    }
 
-            // 1. Pull latest from Firestore
-            if (context != null) {
-                val firestoreProjects = FirebaseProjectSync.fetchFromFirestore(context)
-                if (firestoreProjects != null && firestoreProjects.isNotEmpty()) {
-                    repository.insertProjects(firestoreProjects)
+    /**
+     * Refreshes live status ONLY for the current active tab (strictly isolated: "APP" or "GAME").
+     * Keeps the list order completely stable (from 1 to end) without jumping or rebuilding.
+     * When isBackground = true, checks quietly in background without full-screen spinners.
+     */
+    fun refreshCurrentTab(category: String = _homeSelectedTab.value, context: Context? = null, isBackground: Boolean = false) {
+        if (_isRefreshingStatus.value && !isBackground) return
+        val targetCategory = if (category.contains("game", ignoreCase = true)) "GAME" else "APP"
+        val currentEmail = getUserEmail()
+
+        viewModelScope.launch {
+            if (!isBackground) {
+                _isRefreshingStatus.value = true
+                _refreshFeedbackMessage.value = null
+            }
+
+            var freshlySyncedProjects: List<ProjectEntity>? = null
+
+            // 1. Sync strictly from Firestore for this user (both apps and user profile name)!
+            if (context != null && !isBackground) {
+                try {
+                    loadUserData(context, currentEmail)
+                    val paged = FirebaseProjectSync.fetchPageFromFirestore(
+                        context = context,
+                        pageSize = 50L,
+                        currentUserEmail = currentEmail
+                    )
+                    if (paged != null) {
+                        repository.clearAllProjects()
+                        if (paged.projects.isNotEmpty()) {
+                            repository.insertProjects(paged.projects)
+                        }
+                        freshlySyncedProjects = paged.projects
+                    }
+                } catch (e: Exception) {
+                    Log.d("MainViewModel", "Refresh sync note: ${e.message}")
                 }
             }
 
-            // 2. Get current project list
-            val currentList = projects.value
-            if (currentList.isEmpty()) {
-                _isRefreshingStatus.value = false
+            // 2. Filter ONLY current active tab items! Use freshly synced projects to eliminate async state lag
+            val activeList = freshlySyncedProjects ?: projects.value
+            val tabProjects = activeList.filter { it.category.equals(targetCategory, ignoreCase = true) }
+            if (tabProjects.isEmpty()) {
+                if (!isBackground) _isRefreshingStatus.value = false
                 return@launch
             }
 
-            // 3. Set all to CHECKING visually
-            currentList.forEach { project ->
-                repository.updateProjectLiveStatus(
-                    id = project.id,
-                    status = "CHECKING",
-                    liveUrl = project.liveStoreUrl,
-                    timestamp = System.currentTimeMillis()
-                )
+            // 3. Mark current tab items as checking
+            if (!isBackground) {
+                _checkingProjectIds.value = tabProjects.map { it.id }.toSet()
+                _checkingProgress.value = Pair(0, tabProjects.size)
             }
-            _checkingProgress.value = Pair(0, currentList.size)
 
-            // 4. Parallel check all package names
-            val packages = currentList.map { it.packageName }
+            // 4. Parallel check Play Store live status ONLY for current active tab's packages!
+            val packages = tabProjects.map { it.packageName.trim() }
             val resultMap = LiveStatusChecker.checkAllInParallel(packages) { pkg, result, completed, total ->
-                _checkingProgress.value = Pair(completed, total)
+                if (!isBackground) {
+                    _checkingProgress.value = Pair(completed, total)
+                }
                 viewModelScope.launch {
-                    currentList.filter { it.packageName == pkg }.forEach { project ->
+                    val matchingProjects = tabProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
+                    matchingProjects.forEach { project ->
+                        _checkingProjectIds.update { it - project.id }
                         repository.updateProjectLiveStatus(
                             id = project.id,
-                            status = result.statusText,
-                            liveUrl = result.storeUrl,
+                            status = if (result.isLive) "LIVE" else "PENDING",
+                            liveUrl = "https://play.google.com/store/apps/details?id=$pkg",
                             timestamp = result.checkedAt
                         )
-                        if (context != null) {
-                            FirebaseProjectSync.syncProjectToFirestore(
-                                context,
-                                project.copy(
-                                    status = result.statusText,
-                                    liveStoreUrl = result.storeUrl,
-                                    lastCheckedTimestamp = result.checkedAt
-                                )
-                            )
-                        }
                     }
                 }
             }
 
-            delay(250)
-            _isRefreshingStatus.value = false
+            // Ensure checking IDs for this tab are cleared
+            _checkingProjectIds.update { currentSet -> currentSet - tabProjects.map { it.id }.toSet() }
 
-            val liveCount = resultMap.values.count { it.isLive }
-            val unableCount = resultMap.values.count { it.statusText == "UNABLE TO CHECK" }
-            val notFoundCount = resultMap.values.count { it.statusText == "NOT FOUND" }
-            _refreshFeedbackMessage.value = if (unableCount == 0 && notFoundCount == 0) {
-                "All statuses are up to date ($liveCount Live)"
-            } else {
-                "Status check complete • $liveCount Live" +
-                    (if (unableCount > 0) " • $unableCount Unable to Check" else "") +
-                    (if (notFoundCount > 0) " • $notFoundCount Not Found" else "")
-            }
+            if (!isBackground) {
+                _isRefreshingStatus.value = false
 
-            // Auto-dismiss after 3.5 seconds
-            viewModelScope.launch {
-                delay(3500)
-                if (_refreshFeedbackMessage.value != null) {
-                    _refreshFeedbackMessage.value = null
+                val liveCount = resultMap.values.count { it.isLive }
+                val unableCount = resultMap.values.count { it.statusText == "UNABLE TO CHECK" }
+                val notFoundCount = resultMap.values.count { it.statusText == "NOT FOUND" }
+                val tabLabel = if (targetCategory == "GAME") "Games" else "Applications"
+                _refreshFeedbackMessage.value = if (unableCount == 0 && notFoundCount == 0) {
+                    "$tabLabel up to date ($liveCount Live)"
+                } else {
+                    "$tabLabel: $liveCount Live" +
+                        (if (unableCount > 0) " • $unableCount Unable to Check" else "") +
+                        (if (notFoundCount > 0) " • $notFoundCount Not Found" else "")
+                }
+
+                viewModelScope.launch {
+                    delay(3500)
+                    if (_refreshFeedbackMessage.value != null) {
+                        _refreshFeedbackMessage.value = null
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Backward-compatible helper that delegates to refreshCurrentTab.
+     */
+    fun refreshAllAppsStatus(context: Context? = null) {
+        refreshCurrentTab(category = _homeSelectedTab.value, context = context, isBackground = false)
     }
 
     /**
@@ -255,13 +500,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
      */
     fun checkSingleApp(project: ProjectEntity, context: Context? = null) {
         viewModelScope.launch {
-            repository.updateProjectLiveStatus(
-                id = project.id,
-                status = "CHECKING",
-                liveUrl = project.liveStoreUrl,
-                timestamp = System.currentTimeMillis()
-            )
+            _checkingProjectIds.update { it + project.id }
             val result = LiveStatusChecker.checkAppLive(project.packageName)
+            _checkingProjectIds.update { it - project.id }
+
             repository.updateProjectLiveStatus(
                 id = project.id,
                 status = result.statusText,
@@ -331,11 +573,20 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     }
 }
 
-class MainViewModelFactory(private val repository: AppRepository) : ViewModelProvider.Factory {
+class MainViewModelFactory(
+    private val repository: AppRepository,
+    private val sessionManager: SessionManager
+) : ViewModelProvider.Factory {
+
+    constructor(repository: AppRepository, context: Context) : this(
+        repository,
+        SessionManager(context)
+    )
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-            return MainViewModel(repository) as T
+            return MainViewModel(repository, sessionManager) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

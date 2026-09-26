@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +30,10 @@ import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LoginScreen
 import com.example.ui.theme.AppTrackTheme
 import com.example.util.NotificationHelper
+import com.example.util.SessionManager
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +44,8 @@ class MainActivity : ComponentActivity() {
 
         val database = AppDatabase.getInstance(applicationContext)
         val repository = AppRepository(database)
-        val viewModelFactory = MainViewModelFactory(repository)
+        val sessionManager = SessionManager(applicationContext)
+        val viewModelFactory = MainViewModelFactory(repository, sessionManager)
 
         setContent {
             AppTrackTheme {
@@ -76,18 +82,34 @@ fun AppTrackApp(
     val isRefreshingStatus by viewModel.isRefreshingStatus.collectAsStateWithLifecycle()
     val checkingProgress by viewModel.checkingProgress.collectAsStateWithLifecycle()
     val feedbackMessage by viewModel.refreshFeedbackMessage.collectAsStateWithLifecycle()
+    val isLoadingNextPage by viewModel.isLoadingNextPage.collectAsStateWithLifecycle()
+    val checkingProjectIds by viewModel.checkingProjectIds.collectAsStateWithLifecycle()
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
 
     val activeContract = contracts.find { it.id == selectedContractId } ?: contracts.firstOrNull()
 
     val isLoggedIn = currentScreen != AppScreen.Initializing && currentScreen != AppScreen.Login
+    val isEdgeToEdge = currentScreen is AppScreen.Login || currentScreen is AppScreen.Home
+
+    // Automatically sync user profile name and isolated apps when logged in
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            val email = userSession?.email?.takeIf { it.isNotBlank() } ?: viewModel.getUserEmail()
+            if (email.isNotBlank()) {
+                viewModel.loadUserData(context, email)
+            }
+        }
+    }
 
     Scaffold(
-        containerColor = Color.White,
+        containerColor = if (isEdgeToEdge) Color.Transparent else Color.White,
+        contentWindowInsets = if (isEdgeToEdge) androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) else androidx.compose.material3.ScaffoldDefaults.contentWindowInsets,
         topBar = {
             if (isLoggedIn && currentScreen != AppScreen.Home) {
+                val emailDisplay = userSession?.email?.takeIf { it.isNotBlank() } ?: viewModel.getUserEmail()
                 DiscordTopBar(
                     title = "AppTrack",
-                    subtitle = "${activeContract?.clientName ?: userSession?.email?.substringBefore("@") ?: "Client"} • ${activeContract?.companyName ?: "Live Hub"}",
+                    subtitle = "${activeContract?.clientName ?: emailDisplay.substringBefore("@").ifBlank { "Client" }} • ${activeContract?.companyName ?: "Live Hub"}",
                     currentRole = "CLIENT",
                     unreadNotifs = unreadNotifs,
                     onRoleClick = { /* client-only, no role switch */ },
@@ -100,7 +122,7 @@ fun AppTrackApp(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .then(if (isEdgeToEdge) Modifier else Modifier.padding(innerPadding))
         ) {
             when (currentScreen) {
                 is AppScreen.Initializing -> {
@@ -116,14 +138,14 @@ fun AppTrackApp(
                     LoginScreen(
                         contracts = contracts,
                         onLogin = { email, role, contractId ->
-                            viewModel.login(email, role, contractId)
+                            viewModel.login(email, role, contractId, context)
                         }
                     )
                 }
 
                 is AppScreen.Home -> {
                     HomeScreen(
-                        userEmail = userSession?.email ?: "",
+                        userEmail = userSession?.email?.takeIf { it.isNotBlank() } ?: viewModel.getUserEmail(),
                         userRole = "CLIENT",
                         projects = projects,
                         selectedTab = homeTab,
@@ -132,9 +154,13 @@ fun AppTrackApp(
                         checkingProgress = checkingProgress,
                         feedbackMessage = feedbackMessage,
                         showAddDialog = false,
-                        onTabSelected = { viewModel.setHomeTab(it) },
+                        isLoadingNextPage = isLoadingNextPage,
+                        checkingIds = checkingProjectIds,
+                        userName = userName,
+                        onTabSelected = { viewModel.setHomeTab(it, context) },
                         onSearchQueryChange = { viewModel.setHomeSearchQuery(it) },
-                        onRefreshAll = { viewModel.refreshAllAppsStatus(context) },
+                        onRefreshTab = { tab -> viewModel.refreshCurrentTab(category = tab, context = context, isBackground = false) },
+                        onLoadMore = { viewModel.loadNextPage(context) },
                         onCheckSingle = { viewModel.checkSingleApp(it, context) },
                         onShowAddDialog = { /* client cannot add apps */ },
                         onAddNewProject = { _, _, _, _ -> /* not available */ },

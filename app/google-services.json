@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "939952780750",
+    "project_id": "apptrack-401e5",
+    "storage_bucket": "apptrack-401e5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:939952780750:android:c5189050ab52a83b29679f",
+        "android_client_info": {
+          "package_name": "com.aistudio.launchpulse.livehub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzyZXh3Vi9wlE8Rbfpgt2oFzREWoGH4hQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,21 +1,25 @@
 package com.example.ui.screens
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,7 +27,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -39,114 +42,124 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SportsEsports
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.R
 import com.example.data.model.ProjectEntity
-import kotlinx.coroutines.launch
+import com.example.util.NetworkUtils
+import com.google.firebase.auth.FirebaseAuth
 
-// AppTrack Visual Design Tokens
+// ───── Royal Blue & Frosted Glass Design Palette ─────
+private val BlueGradientStart = Color(0xFF1E2CC8)
+private val BlueGradientMid = Color(0xFF2E40ED)
+private val BlueGradientEnd = Color(0xFF4358F6)
+
+private val HeaderRoyalGradient = Brush.verticalGradient(
+    colors = listOf(BlueGradientStart, BlueGradientMid, BlueGradientEnd)
+)
+
+private val GlassSurfaceBrush = Brush.linearGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.24f),
+        Color.White.copy(alpha = 0.10f)
+    )
+)
+
+private val GlassBorderBrush = Brush.linearGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.40f),
+        Color.White.copy(alpha = 0.12f)
+    )
+)
+
 private val AppTrackBg = Color(0xFFF8FAFC)
-private val AppTrackCardBg = Color(0xFFFFFFFF)
-private val AppTrackBorder = Color(0xFFE2E8F0)
-private val AppTrackBorderSubtle = Color(0xFFF1F5F9)
-private val AppTrackPrimary = Color(0xFF2563EB)
-private val AppTrackPrimaryDark = Color(0xFF1D4ED8)
-private val AppTrackPrimaryLight = Color(0xFFEFF6FF)
+private val AppTrackPrimary = Color(0xFF2835D8)
 private val AppTrackTextPrimary = Color(0xFF0F172A)
 private val AppTrackTextMuted = Color(0xFF64748B)
-private val AppTrackTextLight = Color(0xFF94A3B8)
 
-// Status Tokens
-private val StatusLiveGreen = Color(0xFF16A34A)
-private val StatusLiveGreenBg = Color(0xFFDCFCE7)
-private val StatusNotFoundAmber = Color(0xFFD97706)
-private val StatusNotFoundBg = Color(0xFFFEF3C7)
-private val StatusUnableRed = Color(0xFFDC2626)
-private val StatusUnableBg = Color(0xFFFEE2E2)
-private val StatusCheckingBlue = Color(0xFF2563EB)
-private val StatusCheckingBg = Color(0xFFEFF6FF)
+// Status colors
+private val StatusLiveGreen = Color(0xFF10B981)
+private val StatusLiveGreenBg = Color(0xFFECFDF5)
+private val StatusLiveGreenBorder = Color(0xFFA7F3D0)
+
+private val StatusPendingAmber = Color(0xFFF59E0B)
+private val StatusPendingAmberBg = Color(0xFFFFFBEB)
+private val StatusPendingAmberBorder = Color(0xFFFDE68A)
+
+private val StatusUnableRed = Color(0xFFEF4444)
+private val StatusUnableBg = Color(0xFFFEF2F2)
+private val StatusUnableBorder = Color(0xFFFECACA)
 
 /**
- * AppTrack Main Dashboard Screen.
- *
- * Exact hierarchy:
- * 1. App bar (Title: AppTrack, Tagline: Track all your apps in one place., compact, logout/account button)
- * 2. Apps / Games tabs (Smooth animated sliding indicator)
- * 3. Search bar (Search apps... or Search games...)
- * 4. Summary cards (Compact 2x2 grid: Total Apps/Games, Live, In Development, Pending)
- * 5. App/Game list header ("Your Apps" or "Your Games")
- * 6. App/Game list (Clean horizontal rows with icon, name, live status, row retry button)
- * 7. Floating refresh/check-all button (bottom-right ↻)
+ * State-of-the-Art HomeScreen for AppTrack:
+ * - Fixed Top Royal Blue Header Container with smooth 32.dp rounded bottom corners.
+ * - iOS-Style Segmented Tabs (Applications vs Games).
+ * - Enhanced Frosted Glass Stats Cards with focused, sharp top-right icons.
+ * - Crisp White/Light scrollable list of apps with squircle icons, pulsing status, and capsule actions.
+ * - No package names, no redundant headers, and silent non-intrusive Floating Action Button.
+ * - Clean, professional logout dialog.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     userEmail: String,
@@ -157,50 +170,44 @@ fun HomeScreen(
     isRefreshing: Boolean,
     checkingProgress: Pair<Int, Int>,
     feedbackMessage: String?,
-    showAddDialog: Boolean,
+    showAddDialog: Boolean = false,
+    isLoadingNextPage: Boolean = false,
+    checkingIds: Set<String> = emptySet(),
+    userName: String = "",
     onTabSelected: (String) -> Unit,
     onSearchQueryChange: (String) -> Unit,
-    onRefreshAll: () -> Unit,
+    onRefreshTab: (String) -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onCheckSingle: (ProjectEntity) -> Unit,
-    onShowAddDialog: (Boolean) -> Unit,
-    onAddNewProject: (title: String, packageName: String, category: String, iconUrl: String) -> Unit,
+    onShowAddDialog: (Boolean) -> Unit = {},
+    onAddNewProject: (title: String, packageName: String, category: String, iconUrl: String) -> Unit = { _, _, _, _ -> },
     onDismissFeedback: () -> Unit,
     onLogout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
 
-    // Two tabs: 0 for "APP", 1 for "GAME"
-    val pagerState = rememberPagerState(
-        initialPage = if (selectedTab.equals("GAME", ignoreCase = true)) 1 else 0,
-        pageCount = { 2 }
-    )
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var showOfflineDialog by remember { mutableStateOf(false) }
 
-    // Synchronize tab clicks with Pager smoothly
-    LaunchedEffect(selectedTab) {
-        val targetPage = if (selectedTab.equals("GAME", ignoreCase = true)) 1 else 0
-        if (pagerState.currentPage != targetPage) {
-            pagerState.animateScrollToPage(targetPage)
+    // Status bar: White icons on royal blue header; dark navigation bar icons
+    val activity = context as? Activity
+    DisposableEffect(Unit) {
+        val window = activity?.window
+        if (window != null) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            insetsController.isAppearanceLightStatusBars = false
+            insetsController.isAppearanceLightNavigationBars = true
         }
-    }
-
-    // Synchronize swiping gesture back to ViewModel tab state
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
-            val tabKey = if (page == 1) "GAME" else "APP"
-            if (selectedTab != tabKey) {
-                onTabSelected(tabKey)
-            }
-        }
+        onDispose { }
     }
 
     // Filter projects for Apps vs Games
     val filteredApps = remember(projects, searchQuery) {
         projects.filter { project ->
             val matchesCategory = project.category.equals("APP", ignoreCase = true)
-            val matchesSearch = if (searchQuery.isBlank()) {
-                true
-            } else {
+            val matchesSearch = if (searchQuery.isBlank()) true else {
                 project.title.contains(searchQuery, ignoreCase = true) ||
                         project.packageName.contains(searchQuery, ignoreCase = true)
             }
@@ -211,9 +218,7 @@ fun HomeScreen(
     val filteredGames = remember(projects, searchQuery) {
         projects.filter { project ->
             val matchesCategory = project.category.equals("GAME", ignoreCase = true)
-            val matchesSearch = if (searchQuery.isBlank()) {
-                true
-            } else {
+            val matchesSearch = if (searchQuery.isBlank()) true else {
                 project.title.contains(searchQuery, ignoreCase = true) ||
                         project.packageName.contains(searchQuery, ignoreCase = true)
             }
@@ -225,165 +230,318 @@ fun HomeScreen(
     val gamesList = remember(projects) { projects.filter { it.category.equals("GAME", ignoreCase = true) } }
 
     val currentTab = if (selectedTab.equals("GAME", ignoreCase = true)) "GAME" else "APP"
+    val currentItems = if (currentTab == "GAME") filteredGames else filteredApps
+
+    // Pagination: Smoothly trigger next page when user scrolls near the end
+    val shouldLoadMore by remember(currentItems, isLoadingNextPage) {
+        derivedStateOf {
+            val totalItems = currentItems.size
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            !isLoadingNextPage && totalItems > 0 && lastVisibleIndex >= totalItems - 2
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            onLoadMore()
+        }
+    }
+
+    // Dynamic stats: Only Live in Store & Pending Review, calculated dynamically for active tab
+    val currentTabProjects = if (currentTab == "GAME") gamesList else appsList
+    val tabTotal = currentTabProjects.size
+    val tabLiveCount = remember(currentTabProjects) { currentTabProjects.count { it.status.equals("LIVE", ignoreCase = true) } }
+    val tabPendingCount = tabTotal - tabLiveCount
+    val tabLivePercentage = if (tabTotal > 0) ((tabLiveCount.toFloat() / tabTotal.toFloat()) * 100).toInt() else 0
+    val tabPendingPercentage = if (tabTotal > 0) ((tabPendingCount.toFloat() / tabTotal.toFloat()) * 100).toInt() else 0
+
+    val animatedLiveCount by animateIntAsState(targetValue = tabLiveCount, animationSpec = tween(320), label = "liveCount")
+    val animatedPendingCount by animateIntAsState(targetValue = tabPendingCount, animationSpec = tween(320), label = "pendingCount")
+    val animatedLivePercentage by animateIntAsState(targetValue = tabLivePercentage, animationSpec = tween(320), label = "livePercentage")
+    val animatedPendingPercentage by animateIntAsState(targetValue = tabPendingPercentage, animationSpec = tween(320), label = "pendingPercentage")
+
+    // Dynamic user display name: from Firestore profile, Auth, or formatted email prefix (no hardcoded fallback)
+    val displayName = remember(userName, userEmail) {
+        if (userName.isNotBlank()) {
+            userName
+        } else {
+            val fbUser = try { FirebaseAuth.getInstance().currentUser } catch (e: Exception) { null }
+            val nameFromFb = fbUser?.displayName?.takeIf { it.isNotBlank() }
+                ?: fbUser?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+            val raw = nameFromFb ?: userEmail.substringBefore("@")
+            if (raw.isBlank()) {
+                "User"
+            } else {
+                raw.replace(".", " ")
+                    .replace("_", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+            }
+        }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AppTrackBg)
-            .statusBarsPadding()
-            .navigationBarsPadding()
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
-            // 1. App Bar Section (Clean Client-Side Top Bar)
-            AppTrackTopBar(
-                userEmail = userEmail,
-                onLogout = onLogout
-            )
-
-            // 2. Control & Search Section (Unified Tabs & Search Bar Card, clearly distinct from background)
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = AppTrackCardBg),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AppTrackBorder),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            // ───── 1. STICKY TOP ROYAL BLUE HEADER CONTAINER (32.dp Rounded Corners) ─────
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .testTag("controls_search_section")
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp),
+                        clip = false
+                    )
+                    .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                    .background(HeaderRoyalGradient)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .statusBarsPadding()
+                        .padding(bottom = 20.dp)
                 ) {
-                    // Apps / Games Tabs
-                    AppTrackTabs(
+                    // User Profile Greeting Row + Frosted Logout Button
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "Hi, $displayName!",
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.5).sp,
+                                modifier = Modifier.testTag("header_app_title")
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Welcome Back!",
+                                color = Color.White.copy(alpha = 0.82f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+
+                        // Frosted Logout Button
+                        IconButton(
+                            onClick = { showLogoutDialog = true },
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(Color.White.copy(alpha = 0.18f))
+                                .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(13.dp))
+                                .testTag("user_logout_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Logout,
+                                contentDescription = "Logout",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    // iOS-Style Segmented Tabs (Applications vs Games)
+                    AppTrackIOSSegmentedTabs(
                         selectedTab = currentTab,
                         appsCount = appsList.size,
                         gamesCount = gamesList.size,
-                        onTabSelected = { tab ->
-                            onTabSelected(tab)
-                            coroutineScope.launch {
-                                val targetPage = if (tab.equals("GAME", ignoreCase = true)) 1 else 0
-                                pagerState.animateScrollToPage(targetPage)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                        onTabSelected = onTabSelected,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
                     )
 
-                    // Search Bar (Distinct from Card Surface, zero stroke when keyboard active)
-                    AppTrackSearchBar(
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // ───── REFINED FROSTED GLASS STATS CARDS ─────
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Card 1: Live in Store (Neon Mint Glass + Sharp Top-Right Check Circle)
+                        AppTrackFrostedStatCard(
+                            title = "Live in Store",
+                            stat = animatedLiveCount.toString(),
+                            percentage = animatedLivePercentage,
+                            accentColor = Color(0xFF34D399),
+                            icon = Icons.Default.CheckCircle,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Card 2: Pending Review (Warm Amber Glass + Sleek Hourglass Indicator)
+                        AppTrackFrostedStatCard(
+                            title = "Pending Review",
+                            stat = animatedPendingCount.toString(),
+                            percentage = animatedPendingPercentage,
+                            accentColor = Color(0xFFFBBF24),
+                            icon = Icons.Default.HourglassTop,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Frosted Glass Search Bar
+                    AppTrackFrostedSearchBar(
                         query = searchQuery,
-                        isGame = currentTab == "GAME",
                         onQueryChange = onSearchQueryChange,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
                     )
                 }
             }
 
-            // Live Checking Progress Banner (when multi-threading check is active)
-            AnimatedVisibility(
-                visible = isRefreshing,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
-            ) {
-                AppTrackCheckingProgress(
-                    completed = checkingProgress.first,
-                    total = checkingProgress.second,
+            // ───── 2. SCROLLABLE APPLICATION LIST OR CENTERED EMPTY STATE ─────
+            if (currentItems.isEmpty()) {
+                Box(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
-
-            // 3. App / Game List Section with Smooth HorizontalPager Swiping
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .testTag("app_list_section")
-            ) { page ->
-                val isGamePage = page == 1
-                val itemsList = if (isGamePage) filteredGames else filteredApps
-                val totalInTab = if (isGamePage) gamesList.size else appsList.size
-
-                AppTrackListContent(
-                    isGame = isGamePage,
-                    items = itemsList,
-                    totalInTab = totalInTab,
-                    searchQuery = searchQuery,
-                    onRetrySingle = onCheckSingle,
-                    modifier = Modifier.fillMaxSize()
-                )
+                        .padding(start = 20.dp, end = 20.dp, bottom = 40.dp)
+                        .testTag("app_empty_state_box"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AppTrackEmptyState(
+                        isSearchEmpty = searchQuery.isNotBlank(),
+                        isGame = currentTab == "GAME",
+                        totalInTab = if (currentTab == "GAME") gamesList.size else appsList.size,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .testTag("app_list_section"),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 90.dp, start = 20.dp, end = 20.dp)
+                ) {
+                    items(
+                        items = currentItems,
+                        key = { it.id }
+                    ) { project ->
+                        Box(modifier = Modifier.padding(vertical = 5.dp)) {
+                            AppTrackRow(
+                                project = project,
+                                isChecking = checkingIds.contains(project.id) || project.status.equals("CHECKING", ignoreCase = true),
+                                onOpenStore = {
+                                    val cleanPkg = project.packageName.trim()
+                                    val url = "https://play.google.com/store/apps/details?id=$cleanPkg"
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Fallback
+                                    }
+                                },
+                                onRetry = { onCheckSingle(project) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                    if (isLoadingNextPage) {
+                        item(key = "loading_next_page_indicator") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    color = AppTrackPrimary,
+                                    strokeWidth = 2.5.dp,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // 6. Floating Status Feedback Toast (Consistent Google-style bottom notification pill)
-        AnimatedVisibility(
-            visible = !isRefreshing && feedbackMessage != null,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 84.dp, start = 20.dp, end = 20.dp)
-        ) {
-            if (feedbackMessage != null) {
-                AppTrackStatusToast(
-                    message = feedbackMessage,
-                    onDismiss = onDismissFeedback
-                )
-            }
-        }
+        // ───── 3. FLOATING ACTION BUTTON (Royal Blue Theme) ─────
+        val infiniteTransition = rememberInfiniteTransition(label = "fabSpin")
+        val spinAngle by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 850, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "fabSpinAngle"
+        )
 
-        // 7. Modern Compact Floating Action Button (Check All)
         FloatingActionButton(
             onClick = {
                 if (!isRefreshing) {
-                    onRefreshAll()
+                    if (!NetworkUtils.isNetworkAvailable(context)) {
+                        showOfflineDialog = true
+                    } else {
+                        // Strictly isolated: refreshes ONLY the active tab!
+                        onRefreshTab(currentTab)
+                    }
                 }
             },
-            shape = CircleShape,
+            shape = RoundedCornerShape(18.dp),
             containerColor = AppTrackPrimary,
             contentColor = Color.White,
-            elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(
-                defaultElevation = 4.dp,
-                pressedElevation = 8.dp
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 6.dp,
+                pressedElevation = 10.dp
             ),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 20.dp, end = 20.dp)
+                .navigationBarsPadding()
+                .padding(20.dp)
                 .size(54.dp)
                 .testTag("fab_check_all")
         ) {
-            if (isRefreshing) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    strokeWidth = 2.5.dp,
-                    modifier = Modifier.size(22.dp)
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Check all app statuses",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Check app statuses for current tab",
+                tint = Color.White,
+                modifier = Modifier
+                    .size(24.dp)
+                    .then(if (isRefreshing) Modifier.rotate(spinAngle) else Modifier)
+            )
         }
 
-        // Add App Dialog (Allows user to track their apps/games)
-        if (showAddDialog) {
-            AddAppDialog(
-                defaultCategory = currentTab,
-                onDismiss = { onShowAddDialog(false) },
-                onConfirm = { title, pkg, cat, iconUrl ->
-                    onAddNewProject(title, pkg, cat, iconUrl)
-                    onShowAddDialog(false)
+        // ───── 4. LOGOUT CONFIRMATION DIALOG ─────
+        if (showLogoutDialog) {
+            AppTrackLogoutDialog(
+                onDismiss = { showLogoutDialog = false },
+                onConfirm = {
+                    showLogoutDialog = false
+                    onLogout()
+                }
+            )
+        }
+
+        // ───── 5. NETWORK OFFLINE DIALOG ─────
+        if (showOfflineDialog) {
+            AppTrackOfflineDialog(
+                onDismiss = { showOfflineDialog = false },
+                onRetrySuccess = {
+                    showOfflineDialog = false
+                    onRefreshTab(currentTab)
                 }
             )
         }
@@ -391,74 +549,100 @@ fun HomeScreen(
 }
 
 /**
- * 1. App Bar (Client-Side Header):
- * - AppTrack Logo + Title: AppTrack
- * - Tagline: Track all your apps in one place.
- * - Logout / Account action
+ * Refined Frosted Glass Stats Card:
+ * Features dual-layer angled glassmorphic shine, glowing progress ring,
+ * and a focused, sharp, frosted top-right icon badge.
+ * Notice: Badges like "71% Active" are removed for clean bold numbers.
  */
 @Composable
-fun AppTrackTopBar(
-    userEmail: String,
-    onLogout: () -> Unit,
+fun AppTrackFrostedStatCard(
+    title: String,
+    stat: String,
+    percentage: Int,
+    accentColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = AppTrackCardBg,
-        shadowElevation = 1.dp,
-        modifier = modifier.fillMaxWidth()
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+        modifier = modifier
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .clip(RoundedCornerShape(20.dp))
+                .background(GlassSurfaceBrush)
+                .border(
+                    width = 1.dp,
+                    brush = GlassBorderBrush,
+                    shape = RoundedCornerShape(20.dp)
+                )
+                .padding(14.dp)
         ) {
-            // Brand: Prominent Full-Size App Logo + Title + Tagline (No awkward surrounding box/padding)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_apptrack_logo),
-                    contentDescription = "AppTrack Logo",
-                    modifier = Modifier
-                        .size(38.dp)
-                        .testTag("header_apptrack_logo")
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Top Row: Circular Progress Ring on left + Sharp Focused Icon Badge on right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Mini Glowing Progress Ring
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            progress = { (percentage.coerceIn(0, 100) / 100f) },
+                            color = accentColor,
+                            trackColor = Color.White.copy(alpha = 0.20f),
+                            strokeWidth = 3.2.dp,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            text = "$percentage%",
+                            color = Color.White,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Sharp, Focused Icon Badge (Frosted glass circle with vivid accent icon)
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.16f))
+                            .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Title Label
+                Text(
+                    text = title,
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
-                Column {
-                    Text(
-                        text = "AppTrack",
-                        color = AppTrackTextPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.3).sp,
-                        modifier = Modifier.testTag("header_app_title")
-                    )
-
-                    Text(
-                        text = "Track all your apps in one place.",
-                        color = AppTrackTextMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                }
-            }
-
-            // Actions: User Logout
-            IconButton(
-                onClick = onLogout,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9))
-                    .testTag("user_logout_btn")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Logout,
-                    contentDescription = "Logout",
-                    tint = AppTrackTextMuted,
-                    modifier = Modifier.size(19.dp)
+                // Bold, Clean Stat Number (No cluttering extra badges)
+                Text(
+                    text = stat,
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp
                 )
             }
         }
@@ -466,63 +650,74 @@ fun AppTrackTopBar(
 }
 
 /**
- * 2. Apps / Games Tabs:
- * - Professional Google-style segmented blue pill indicator
- * - Clear counts and sharp icons for each
+ * iOS-Style Segmented Tab Switcher with Apple Physics Spring
  */
 @Composable
-fun AppTrackTabs(
+fun AppTrackIOSSegmentedTabs(
     selectedTab: String,
     appsCount: Int,
     gamesCount: Int,
     onTabSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isGame = selectedTab.equals("GAME", ignoreCase = true)
+
+    val springFraction by animateFloatAsState(
+        targetValue = if (isGame) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = 0.78f,
+            stiffness = 380f
+        ),
+        label = "iosSpringTab"
+    )
+
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF1F5F9),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = modifier.height(44.dp)
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Black.copy(alpha = 0.22f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+        modifier = modifier.height(48.dp)
     ) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(3.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(3.5.dp)
         ) {
-            val tabs = listOf(
-                Triple("APP", "Apps", appsCount),
-                Triple("GAME", "Games", gamesCount)
-            )
+            val halfWidth = maxWidth / 2f
+            val pillOffset = halfWidth * springFraction
 
-            tabs.forEach { (key, title, count) ->
-                val isSelected = selectedTab.equals(key, ignoreCase = true)
+            // Sliding White Card Indicator
+            Surface(
+                shape = RoundedCornerShape(13.dp),
+                color = Color.White,
+                shadowElevation = 3.dp,
+                modifier = Modifier
+                    .offset(x = pillOffset)
+                    .width(halfWidth)
+                    .fillMaxHeight()
+            ) {}
 
-                val pillBg by animateColorAsState(
-                    targetValue = if (isSelected) AppTrackPrimary else Color.Transparent,
-                    animationSpec = tween(220),
-                    label = "tabPillBg"
+            // Clickable Tab Labels
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Tab 1: Applications
+                val appTextColor by animateColorAsState(
+                    targetValue = if (!isGame) AppTrackPrimary else Color.White.copy(alpha = 0.85f),
+                    animationSpec = tween(180),
+                    label = "appTextColor"
                 )
-
-                val contentColor by animateColorAsState(
-                    targetValue = if (isSelected) Color.White else Color(0xFF64748B),
-                    animationSpec = tween(220),
-                    label = "tabContentColor"
-                )
-
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(pillBg)
+                        .fillMaxHeight()
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) {
-                            onTabSelected(key)
+                            onTabSelected("APP")
                         }
-                        .testTag("tab_$key"),
+                        .testTag("tab_APP"),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -530,36 +725,83 @@ fun AppTrackTabs(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = if (key == "APP") Icons.Default.Apps else Icons.Default.SportsEsports,
+                            imageVector = Icons.Default.Apps,
                             contentDescription = null,
-                            tint = contentColor,
-                            modifier = Modifier.size(18.dp)
+                            tint = appTextColor,
+                            modifier = Modifier.size(17.dp)
                         )
-
                         Spacer(modifier = Modifier.width(6.dp))
-
                         Text(
-                            text = title,
-                            color = contentColor,
+                            text = "Applications",
+                            color = appTextColor,
                             fontSize = 13.5.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                            fontWeight = if (!isGame) FontWeight.Bold else FontWeight.Medium
                         )
-
                         Spacer(modifier = Modifier.width(6.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isSelected) Color.White.copy(alpha = 0.22f) else Color(0xFFE2E8F0)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (!isGame) AppTrackPrimary.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(vertical = 2.dp)
                         ) {
                             Text(
-                                text = count.toString(),
-                                color = if (isSelected) Color.White else Color(0xFF475569),
+                                text = appsCount.toString(),
+                                color = if (!isGame) AppTrackPrimary else Color.White,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Tab 2: Games
+                val gameTextColor by animateColorAsState(
+                    targetValue = if (isGame) AppTrackPrimary else Color.White.copy(alpha = 0.85f),
+                    animationSpec = tween(180),
+                    label = "gameTextColor"
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onTabSelected("GAME")
+                        }
+                        .testTag("tab_GAME"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SportsEsports,
+                            contentDescription = null,
+                            tint = gameTextColor,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Games",
+                            color = gameTextColor,
+                            fontSize = 13.5.sp,
+                            fontWeight = if (isGame) FontWeight.Bold else FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isGame) AppTrackPrimary.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.25f),
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = gamesCount.toString(),
+                                color = if (isGame) AppTrackPrimary else Color.White,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
                             )
                         }
                     }
@@ -570,28 +812,19 @@ fun AppTrackTabs(
 }
 
 /**
- * 3. Search Bar:
- * - Visually distinct from card surface (styled just like the login form input fields).
- * - Completely stroke-free: No outline/stroke appears when focused or when keyboard is active.
- * - Placeholder dynamically matches category: "Search apps…" or "Search games…"
+ * Frosted Glass Search Bar with clear button
  */
 @Composable
-fun AppTrackSearchBar(
+fun AppTrackFrostedSearchBar(
     query: String,
-    isGame: Boolean,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val placeholderText = if (isGame) "Search games…" else "Search apps…"
-
     Surface(
-        modifier = modifier
-            .height(46.dp)
-            .testTag("search_bar_input"),
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF1F5F9), // Clearly distinct from the white section card, same as login form
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        shadowElevation = 0.dp
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White.copy(alpha = 0.14f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+        modifier = modifier.height(46.dp)
     ) {
         Row(
             modifier = Modifier
@@ -602,8 +835,8 @@ fun AppTrackSearchBar(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Search",
-                tint = AppTrackTextMuted,
-                modifier = Modifier.size(19.dp)
+                tint = Color.White.copy(alpha = 0.75f),
+                modifier = Modifier.size(18.dp)
             )
 
             Spacer(modifier = Modifier.width(10.dp))
@@ -614,9 +847,9 @@ fun AppTrackSearchBar(
             ) {
                 if (query.isEmpty()) {
                     Text(
-                        text = placeholderText,
-                        color = AppTrackTextLight,
-                        fontSize = 14.sp,
+                        text = "Search for apps or games…",
+                        color = Color.White.copy(alpha = 0.60f),
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.Normal
                     )
                 }
@@ -626,24 +859,26 @@ fun AppTrackSearchBar(
                     onValueChange = onQueryChange,
                     singleLine = true,
                     textStyle = TextStyle(
-                        color = AppTrackTextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal
+                        color = Color.White,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Medium
                     ),
-                    cursorBrush = SolidColor(AppTrackPrimary),
-                    modifier = Modifier.fillMaxWidth()
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("search_text_field")
                 )
             }
 
             if (query.isNotEmpty()) {
                 IconButton(
                     onClick = { onQueryChange("") },
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Clear Search",
-                        tint = AppTrackTextMuted,
+                        contentDescription = "Clear search",
+                        tint = Color.White.copy(alpha = 0.85f),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -653,346 +888,48 @@ fun AppTrackSearchBar(
 }
 
 /**
- * Animated Banner showing parallel checking progress.
- */
-@Composable
-fun AppTrackCheckingProgress(
-    completed: Int,
-    total: Int,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = AppTrackPrimaryLight),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFBFDBFE)),
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        color = AppTrackPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Checking store status in parallel...",
-                        color = AppTrackPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Text(
-                    text = if (total > 0) "$completed / $total" else "Starting...",
-                    color = AppTrackPrimary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            LinearProgressIndicator(
-                progress = { if (total > 0) completed.toFloat() / total.toFloat() else 0f },
-                color = AppTrackPrimary,
-                trackColor = Color(0xFFDBEAFE),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-            )
-        }
-    }
-}
-
-/**
- * Professional Google-style bottom Floating Status Toast.
- * High-contrast, non-disruptive, auto-dismissing pill that does not push list content.
- */
-@Composable
-fun AppTrackStatusToast(
-    message: String,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF1E293B), // Google-style Slate 800
-        shadowElevation = 6.dp,
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = Color(0xFF4ADE80), // Vibrant emerald
-                modifier = Modifier.size(18.dp)
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Text(
-                text = message,
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(20.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss",
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Professional Vertical Scrollbar for App and Game lists.
- * Features a sleek subtle track and a vibrant AppTrack Primary Blue indicator pill
- * that responds dynamically during scrolling and remains visible with a clean resting opacity.
- */
-@Composable
-fun AppTrackVerticalScrollbar(
-    listState: LazyListState,
-    totalItems: Int,
-    modifier: Modifier = Modifier
-) {
-    if (totalItems <= 1) return
-
-    val isScrollable by remember(totalItems) {
-        derivedStateOf {
-            val visibleCount = listState.layoutInfo.visibleItemsInfo.size
-            visibleCount < totalItems || listState.firstVisibleItemScrollOffset > 0 || listState.firstVisibleItemIndex > 0
-        }
-    }
-
-    if (!isScrollable) return
-
-    val isScrolling = listState.isScrollInProgress
-    val thumbAlpha by animateFloatAsState(
-        targetValue = if (isScrolling) 1.0f else 0.65f,
-        animationSpec = tween(durationMillis = 200),
-        label = "thumbAlpha"
-    )
-
-    BoxWithConstraints(
-        modifier = modifier.width(6.dp),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        val fullHeight = maxHeight
-        val visibleItems = listState.layoutInfo.visibleItemsInfo
-        val visibleCount = visibleItems.size
-
-        val thumbRatio = if (totalItems > 0) (visibleCount.toFloat() / totalItems).coerceIn(0.15f, 0.75f) else 0.35f
-        val thumbHeight = (fullHeight * thumbRatio).coerceAtLeast(36.dp)
-
-        val progress by remember(totalItems) {
-            derivedStateOf {
-                val layoutInfo = listState.layoutInfo
-                val vItems = layoutInfo.visibleItemsInfo
-                if (vItems.isEmpty() || totalItems <= vItems.size) {
-                    0f
-                } else {
-                    val first = vItems.first()
-                    val maxFirstIndex = (totalItems - vItems.size).coerceAtLeast(1)
-                    val indexProgress = first.index.toFloat() / maxFirstIndex
-                    val itemOffsetRatio = if (first.size > 0) {
-                        listState.firstVisibleItemScrollOffset.toFloat() / (first.size * maxFirstIndex)
-                    } else 0f
-                    (indexProgress + itemOffsetRatio).coerceIn(0f, 1f)
-                }
-            }
-        }
-
-        val maxOffset = fullHeight - thumbHeight
-        val thumbOffset = maxOffset * progress
-
-        // Track (Subtle Slate Track)
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(3.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFE2E8F0).copy(alpha = 0.55f))
-        )
-
-        // Thumb Pill (Modern AppTrack Royal-Cobalt Pill)
-        Box(
-            modifier = Modifier
-                .offset(y = thumbOffset)
-                .width(5.dp)
-                .height(thumbHeight)
-                .clip(CircleShape)
-                .background(
-                    color = Color(0xFF2563EB).copy(alpha = thumbAlpha)
-                )
-        )
-    }
-}
-
-/**
- * 5 & 6. App / Game List Content:
- * - Header: "Your Apps" or "Your Games"
- * - Compact horizontal rows:
- *   [Icon] App Name       Status + Retry (if Unable to Check)
- * - Clean empty states if no items or search with no matches
- * - Smooth vertical scrollbar in professional brand color
- */
-@Composable
-fun AppTrackListContent(
-    isGame: Boolean,
-    items: List<ProjectEntity>,
-    totalInTab: Int,
-    searchQuery: String,
-    onRetrySingle: (ProjectEntity) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val listState = rememberLazyListState()
-
-    Box(modifier = modifier) {
-        if (items.isEmpty()) {
-            // Empty State
-            AppTrackEmptyState(
-                isSearchEmpty = searchQuery.isNotBlank(),
-                isGame = isGame,
-                totalInTab = totalInTab,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(items, key = { it.id }) { project ->
-                    AppTrackRow(
-                        project = project,
-                        isGame = isGame,
-                        onRetry = { onRetrySingle(project) },
-                        onOpenStore = {
-                            val pkg = project.packageName.trim()
-                            val webUrl = project.liveStoreUrl.ifBlank {
-                                "https://play.google.com/store/apps/details?id=$pkg"
-                            }
-                            // Professional Play Store intent launcher:
-                            // Try native Play Store market:// protocol first, seamlessly falling back to https:// in browser
-                            try {
-                                val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-                                    setPackage("com.android.vending")
-                                }
-                                context.startActivity(marketIntent)
-                            } catch (e: Exception) {
-                                try {
-                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)).apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                    context.startActivity(browserIntent)
-                                } catch (e2: Exception) {
-                                    Toast.makeText(context, "Unable to open Play Store", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-
-            // Professional Vertical Scrollbar on right edge
-            AppTrackVerticalScrollbar(
-                listState = listState,
-                totalItems = items.size,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(top = 10.dp, bottom = 92.dp, end = 4.dp)
-                    .fillMaxHeight()
-            )
-        }
-    }
-}
-
-/**
- * Compact horizontal row for an App or Game:
- * [Icon]   App Name                 Status Badge (+ Retry if Unable to Check)
- *
- * Requirements:
- * - Do NOT show package name in main row.
- * - Do NOT show Firebase document IDs or technical info.
- * - Status states:
- *     - Checking…
- *     - ● Live
- *     - ● Not Found
- *     - ● Unable to Check (with small subtle retry button beside it)
+ * Modern Apple App Store inspired card with soft floating depth, 20.dp rounded corners,
+ * squircle icons, glowing live dot, and capsule "View ↗" action.
+ * Package name omitted per design specification.
  */
 @Composable
 fun AppTrackRow(
     project: ProjectEntity,
-    isGame: Boolean,
-    onRetry: () -> Unit,
+    isChecking: Boolean,
     onOpenStore: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val statusUpper = project.status.uppercase()
-    val isLive = statusUpper == "LIVE"
-    val isChecking = statusUpper == "CHECKING"
-    val isUnableToCheck = statusUpper == "UNABLE TO CHECK" || statusUpper == "OFFLINE"
-    val isNotFound = statusUpper == "NOT FOUND" || statusUpper == "NOT LIVE"
+    val isLive = project.status.equals("LIVE", ignoreCase = true)
+    val isUnableToCheck = project.status.equals("UNABLE_TO_CHECK", ignoreCase = true)
+    val isNotFound = project.status.equals("NOT_FOUND", ignoreCase = true)
 
     Card(
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = AppTrackCardBg),
-        border = androidx.compose.foundation.BorderStroke(1.dp, AppTrackBorder),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
-                if (isLive) onOpenStore()
-            }
             .testTag("app_row_${project.id}")
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // LEFT: App Icon (38dp squircle, neat, high-quality and well-proportioned)
+            // Squircle App Icon Box
             AppTrackIconBox(
                 iconUrl = project.iconUrl,
                 title = project.title,
-                category = project.category
+                category = project.category,
+                packageName = project.packageName
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(13.dp))
 
-            // CENTER COLUMN: Title on top, Status Badge below (No overlap, Google Play Console layout)
+            // Title & Status Badge (Package name omitted for ultra clean UI)
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center
@@ -1000,14 +937,14 @@ fun AppTrackRow(
                 Text(
                     text = project.title,
                     color = AppTrackTextPrimary,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("app_title_${project.id}")
                 )
 
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(5.dp))
 
                 AppTrackStatusBadge(
                     status = project.status,
@@ -1018,40 +955,66 @@ fun AppTrackRow(
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-            // RIGHT ACTION BUTTON: Dedicated button, completely separated with zero overlap
+            // Action Button: Capsule "View ↗"
             if (isLive) {
-                IconButton(
-                    onClick = onOpenStore,
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFEEF2FF),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFC7D2FE)),
                     modifier = Modifier
-                        .size(32.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFEFF6FF))
+                        .clickable { onOpenStore() }
                         .testTag("open_store_btn_${project.id}")
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                        contentDescription = "Open in Google Play",
-                        tint = AppTrackPrimary,
-                        modifier = Modifier.size(15.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "View",
+                            color = AppTrackPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = "Open in Google Play",
+                            tint = AppTrackPrimary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
                 }
             } else if (isUnableToCheck) {
-                IconButton(
-                    onClick = onRetry,
+                Surface(
+                    shape = CircleShape,
+                    color = StatusUnableBg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StatusUnableBorder),
                     modifier = Modifier
-                        .size(32.dp)
                         .clip(CircleShape)
-                        .background(StatusUnableBg)
+                        .clickable { onRetry() }
                         .testTag("retry_btn_${project.id}")
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Retry check for ${project.title}",
-                        tint = StatusUnableRed,
-                        modifier = Modifier.size(15.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Retry",
+                            color = StatusUnableRed,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Retry check",
+                            tint = StatusUnableRed,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1059,90 +1022,61 @@ fun AppTrackRow(
 }
 
 /**
- * App Icon with Coil and rich Google-style brand & category default icons.
- * Sized proportionally (38dp) for a neat, professional dashboard density.
+ * 46dp Squircle App Icon Box with CDN original brand icon resolvers & Firebase public link support
  */
 @Composable
 fun AppTrackIconBox(
     iconUrl: String,
     title: String,
     category: String = "APP",
+    packageName: String = "",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val cleanTitle = title.trim().lowercase()
+    val cleanTitle = title.trim()
+    val isGame = category.equals("GAME", ignoreCase = true)
 
-    // Determine tailored Google-style fallback icon & colors for famous apps & games
-    val (fallbackBgColor, fallbackIcon, fallbackText) = remember(cleanTitle, category) {
-        when {
-            cleanTitle.contains("spotify") -> Triple(Color(0xFF1DB954), Icons.Default.MusicNote, null)
-            cleanTitle.contains("youtube") -> Triple(Color(0xFFFF0000), Icons.Default.PlayArrow, null)
-            cleanTitle.contains("whatsapp") -> Triple(Color(0xFF25D366), Icons.AutoMirrored.Filled.Chat, null)
-            cleanTitle.contains("duolingo") -> Triple(Color(0xFF58CC02), Icons.Default.School, null)
-            cleanTitle.contains("reddit") -> Triple(Color(0xFFFF4500), Icons.Default.Forum, null)
-            cleanTitle.contains("nova") || cleanTitle.contains("wallet") -> Triple(Color(0xFF0284C7), Icons.Default.AccountBalanceWallet, null)
-            cleanTitle.contains("clash") || cleanTitle.contains("subway") || cleanTitle.contains("candy") || cleanTitle.contains("roblox") || category.equals("GAME", ignoreCase = true) -> {
-                val gameColor = when {
-                    cleanTitle.contains("clash") -> Color(0xFFF59E0B)
-                    cleanTitle.contains("candy") -> Color(0xFFEC4899)
-                    cleanTitle.contains("subway") -> Color(0xFF3B82F6)
-                    cleanTitle.contains("roblox") -> Color(0xFF10B981)
-                    else -> Color(0xFF8B5CF6)
-                }
-                Triple(gameColor, Icons.Default.SportsEsports, null)
-            }
-            else -> {
-                // High-quality letter avatar with rich Google-style gradient/color
-                val hash = kotlin.math.abs(cleanTitle.hashCode())
-                val palette = listOf(
-                    Color(0xFF3B82F6), Color(0xFF6366F1), Color(0xFF8B5CF6),
-                    Color(0xFFEC4899), Color(0xFF10B981), Color(0xFFF59E0B),
-                    Color(0xFF06B6D4), Color(0xFF0284C7)
-                )
-                val color = palette[hash % palette.size]
-                val letter = title.firstOrNull { it.isLetterOrDigit() }?.uppercaseChar()?.toString() ?: "A"
-                Triple(color, null, letter)
-            }
-        }
-    }
+    // Strictly use ONLY the iconUrl provided in Firebase. Zero hardcoding.
+    val effectiveUrl = remember(iconUrl) { iconUrl.trim() }
 
-    Box(
-        modifier = modifier
-            .size(38.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(fallbackBgColor),
-        contentAlignment = Alignment.Center
+    var isImageLoadedSuccessfully by remember(effectiveUrl) { mutableStateOf(false) }
+
+    val fallbackBgColor = if (isGame) Color(0xFF6D28D9) else AppTrackPrimary
+    val fallbackIcon = if (isGame) Icons.Default.SportsEsports else Icons.Default.Apps
+
+    Surface(
+        shape = RoundedCornerShape(13.dp),
+        shadowElevation = 1.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x14000000)),
+        modifier = modifier.size(46.dp)
     ) {
-        if (iconUrl.isNotBlank()) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(iconUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "$title icon",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(10.dp)),
-                error = null
-            )
-        }
-
-        // If no iconUrl or while loading, display tailored default icon/letter
-        if (iconUrl.isBlank()) {
-            if (fallbackIcon != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(13.dp))
+                .background(if (isImageLoadedSuccessfully) Color.White else fallbackBgColor),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!isImageLoadedSuccessfully) {
                 Icon(
                     imageVector = fallbackIcon,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
-            } else if (fallbackText != null) {
-                Text(
-                    text = fallbackText,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
+            }
+
+            if (effectiveUrl.isNotBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(effectiveUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "$title Icon",
+                    contentScale = ContentScale.Crop,
+                    onSuccess = { isImageLoadedSuccessfully = true },
+                    onError = { isImageLoadedSuccessfully = false },
+                    modifier = Modifier.fillMaxSize()
                 )
             }
         }
@@ -1150,11 +1084,7 @@ fun AppTrackIconBox(
 }
 
 /**
- * Status Badge implementing the 4 exact states:
- * - Checking…
- * - ● Live
- * - ● Not Found
- * - ● Unable to Check
+ * Status Badge with glowing pulse indicator
  */
 @Composable
 fun AppTrackStatusBadge(
@@ -1162,146 +1092,69 @@ fun AppTrackStatusBadge(
     isLive: Boolean,
     isChecking: Boolean,
     isUnableToCheck: Boolean,
-    isNotFound: Boolean,
-    modifier: Modifier = Modifier
+    isNotFound: Boolean
 ) {
-    when {
-        isChecking -> {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = StatusCheckingBg,
-                modifier = modifier
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        color = StatusCheckingBlue,
-                        strokeWidth = 1.8.dp,
-                        modifier = Modifier.size(11.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Checking…",
-                        color = StatusCheckingBlue,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
+    val (badgeBg, badgeBorder, badgeText, badgeColor) = when {
+        isChecking -> Quadruple(
+            Color(0xFFEFF6FF),
+            Color(0xFFBFDBFE),
+            "Checking…",
+            Color(0xFF3B82F6)
+        )
+        isLive -> Quadruple(
+            StatusLiveGreenBg,
+            StatusLiveGreenBorder,
+            "Live on Play Store",
+            StatusLiveGreen
+        )
+        isUnableToCheck -> Quadruple(
+            StatusUnableBg,
+            StatusUnableBorder,
+            "Unable to Check",
+            StatusUnableRed
+        )
+        isNotFound -> Quadruple(
+            StatusPendingAmberBg,
+            StatusPendingAmberBorder,
+            "NOT FOUND",
+            StatusPendingAmber
+        )
+        else -> Quadruple(
+            Color(0xFFF1F5F9),
+            Color(0xFFE2E8F0),
+            status.replace("_", " ").uppercase(),
+            Color(0xFF64748B)
+        )
+    }
 
-        isLive -> {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = StatusLiveGreenBg,
-                modifier = modifier
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(StatusLiveGreen)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Live",
-                        color = StatusLiveGreen,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        isUnableToCheck -> {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = StatusUnableBg,
-                modifier = modifier
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(StatusUnableRed)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Unable to Check",
-                        color = StatusUnableRed,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        isNotFound -> {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = StatusNotFoundBg,
-                modifier = modifier
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(StatusNotFoundAmber)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = "Not Found",
-                        color = StatusNotFoundAmber,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
-        else -> {
-            // Other states like Development / Pending
-            val display = when {
-                status.contains("DEV", ignoreCase = true) -> "In Dev"
-                status.contains("PEND", ignoreCase = true) -> "Pending"
-                else -> status
-            }
-
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color(0xFFF1F5F9),
-                modifier = modifier
-            ) {
-                Text(
-                    text = display,
-                    color = AppTrackTextMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = badgeBg,
+        border = androidx.compose.foundation.BorderStroke(1.dp, badgeBorder)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(badgeColor)
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Text(
+                text = badgeText,
+                color = badgeColor,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
 
 /**
- * Empty States for:
- * 1. Search returns no matches
- * 2. No apps yet in the selected category
+ * Empty State
  */
 @Composable
 fun AppTrackEmptyState(
@@ -1310,176 +1163,195 @@ fun AppTrackEmptyState(
     totalInTab: Int,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier.padding(24.dp),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(if (isGame && !isSearchEmpty) Color(0xFFF3E8FF) else Color(0xFFEEF2FF)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(AppTrackPrimaryLight),
-                contentAlignment = Alignment.Center
+            Icon(
+                imageVector = when {
+                    isSearchEmpty -> Icons.Default.Search
+                    isGame -> Icons.Default.SportsEsports
+                    else -> Icons.Default.Apps
+                },
+                contentDescription = null,
+                tint = if (isGame && !isSearchEmpty) Color(0xFF8B5CF6) else AppTrackPrimary,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Text(
+            text = if (isSearchEmpty) "No Results Found" else if (isGame) "No Games Added" else "No Applications Added",
+            color = AppTrackTextPrimary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = if (isSearchEmpty) "Try searching with a different keyword" else "Sync with Firebase to view tracked projects",
+            color = AppTrackTextMuted,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * Concise Logout Dialog
+ */
+@Composable
+fun AppTrackLogoutDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White,
+            shadowElevation = 16.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = if (isSearchEmpty) Icons.Default.Search
-                    else if (isGame) Icons.Default.SportsEsports else Icons.Default.Apps,
-                    contentDescription = null,
-                    tint = AppTrackPrimary,
-                    modifier = Modifier.size(32.dp)
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFEE2E2)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = null,
+                        tint = Color(0xFFEF4444),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Log Out",
+                    color = AppTrackTextPrimary,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Are you sure you want to sign out?",
+                    color = AppTrackTextMuted,
+                    fontSize = 13.5.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF475569)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Button(
+                        onClick = onConfirm,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                    ) {
+                        Text(
+                            text = "Log Out",
+                            color = Color.White,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Text(
-                text = if (isSearchEmpty) {
-                    if (isGame) "No games found" else "No apps found"
-                } else {
-                    if (isGame) "No games yet" else "No apps yet"
-                },
-                color = AppTrackTextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = if (isSearchEmpty) {
-                    "Try a different search."
-                } else {
-                    val label = if (isGame) "Games" else "Apps"
-                    "$label added to your AppTrack account will appear here."
-                },
-                color = AppTrackTextMuted,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
 
 /**
- * Track New Application Dialog:
- * Allows user to add an app or game to track on their dashboard.
+ * Offline Dialog
  */
 @Composable
-fun AddAppDialog(
-    defaultCategory: String,
+fun AppTrackOfflineDialog(
     onDismiss: () -> Unit,
-    onConfirm: (title: String, packageName: String, category: String, iconUrl: String) -> Unit
+    onRetrySuccess: () -> Unit
 ) {
-    var title by remember { mutableStateOf("") }
-    var packageName by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(defaultCategory) }
-    var iconUrl by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Add Application",
-                color = AppTrackTextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(22.dp),
+            color = Color.White,
+            shadowElevation = 14.dp,
+            modifier = Modifier.padding(16.dp)
+        ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("App Name") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppTrackPrimary,
-                        unfocusedBorderColor = AppTrackBorder
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                Text(
+                    text = "No Internet Connection",
+                    color = AppTrackTextPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold
                 )
-
-                OutlinedTextField(
-                    value = packageName,
-                    onValueChange = { packageName = it.trim() },
-                    label = { Text("Package Name (e.g. com.example.app)") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppTrackPrimary,
-                        unfocusedBorderColor = AppTrackBorder
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Please check your network connection and try again.",
+                    color = AppTrackTextMuted,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center
                 )
-
-                OutlinedTextField(
-                    value = iconUrl,
-                    onValueChange = { iconUrl = it.trim() },
-                    label = { Text("Icon URL (Optional)") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppTrackPrimary,
-                        unfocusedBorderColor = AppTrackBorder
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Spacer(modifier = Modifier.height(18.dp))
+                Button(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTrackPrimary),
+                    modifier = Modifier.fillMaxWidth().height(42.dp)
                 ) {
-                    Text("Category:", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { category = "APP" }
-                    ) {
-                        RadioButton(
-                            selected = category == "APP",
-                            onClick = { category = "APP" },
-                            colors = RadioButtonDefaults.colors(selectedColor = AppTrackPrimary)
-                        )
-                        Text("App", fontSize = 13.sp)
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { category = "GAME" }
-                    ) {
-                        RadioButton(
-                            selected = category == "GAME",
-                            onClick = { category = "GAME" },
-                            colors = RadioButtonDefaults.colors(selectedColor = AppTrackPrimary)
-                        )
-                        Text("Game", fontSize = 13.sp)
-                    }
+                    Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank() && packageName.isNotBlank()) {
-                        onConfirm(title.trim(), packageName.trim(), category, iconUrl.trim())
-                    }
-                },
-                enabled = title.isNotBlank() && packageName.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = AppTrackPrimary)
-            ) {
-                Text("Add to AppTrack")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = AppTrackTextMuted)
-            }
         }
-    )
+    }
 }
+
+data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
