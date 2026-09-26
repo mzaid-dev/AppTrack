@@ -5,27 +5,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val SoftLightColorScheme = lightColorScheme(
-    primary = SmartNestBlue,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFEBF2FE),
-    onPrimaryContainer = SmartNestBlueHover,
-    secondary = SoftClientEmerald,
-    onSecondary = Color.White,
-    secondaryContainer = SoftClientEmeraldLight,
-    onSecondaryContainer = SoftClientEmeraldHover,
-    tertiary = SoftPurple,
-    onTertiary = Color.White,
-    background = SmartNestBg,
-    onBackground = SmartNestTextHeader,
-    surface = SmartNestCard,
-    onSurface = SmartNestTextHeader,
-    surfaceVariant = SmartNestInputBg,
-    onSurfaceVariant = SmartNestPlaceholder,
-    outline = SmartNestInputBorder,
-    outlineVariant = Color(0xFFF1F5F9)
-)
-
 private val AppTrackColorScheme = lightColorScheme(
     primary = Color(0xFF2563EB),
     onPrimary = Color.White,
@@ -57,18 +36,3 @@ fun AppTrackTheme(
         content = content
     )
 }
-
-@Composable
-fun SmartNestTheme(
-    content: @Composable () -> Unit
-) = AppTrackTheme(content)
-
-@Composable
-fun LaunchPulseTheme(
-    content: @Composable () -> Unit
-) = AppTrackTheme(content)
-
-@Composable
-fun MyApplicationTheme(
-    content: @Composable () -> Unit
-) = AppTrackTheme(content)

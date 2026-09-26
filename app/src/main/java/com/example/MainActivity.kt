@@ -6,11 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,24 +22,18 @@ import com.example.data.repository.AppRepository
 import com.example.ui.AppScreen
 import com.example.ui.MainViewModel
 import com.example.ui.MainViewModelFactory
-import com.example.ui.components.AddContractModal
-import com.example.ui.components.AddProjectModal
-import com.example.ui.components.CelebrationModal
 import com.example.ui.components.DiscordTopBar
-import com.example.ui.components.LiveTriggerDialog
 import com.example.ui.components.NotificationCenterDialog
-import com.example.ui.components.RoleSwitcherModal
 import com.example.ui.screens.ClientPortalScreen
 import com.example.ui.screens.CommunityChatScreen
-import com.example.ui.screens.DeveloperDashboardScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LoginScreen
-import com.example.ui.screens.SplashScreen
 import com.example.ui.theme.AppTrackTheme
-import com.example.ui.theme.DiscordMainBg
-import com.example.ui.theme.LaunchPulseTheme
-import com.example.ui.theme.SoftBg
 import com.example.util.NotificationHelper
+import com.example.util.SessionManager
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +44,8 @@ class MainActivity : ComponentActivity() {
 
         val database = AppDatabase.getInstance(applicationContext)
         val repository = AppRepository(database)
-        val viewModelFactory = MainViewModelFactory(repository)
+        val sessionManager = SessionManager(applicationContext)
+        val viewModelFactory = MainViewModelFactory(repository, sessionManager)
 
         setContent {
             AppTrackTheme {
@@ -80,35 +75,44 @@ fun AppTrackApp(
     val selectedChannelId by viewModel.selectedChannelId.collectAsStateWithLifecycle()
     val channelMessages by viewModel.channelMessages.collectAsStateWithLifecycle()
 
-    // Dialog & Modal States
-    val showAddContract by viewModel.showAddContractDialog.collectAsStateWithLifecycle()
-    val showAddProject by viewModel.showAddProjectDialog.collectAsStateWithLifecycle()
-    val activeLiveProject by viewModel.activeLiveTriggerProject.collectAsStateWithLifecycle()
-    val celebrationData by viewModel.celebrationEvent.collectAsStateWithLifecycle()
     val showNotifCenter by viewModel.showNotificationCenter.collectAsStateWithLifecycle()
-    val showRoleSwitcher by viewModel.showRoleSwitcher.collectAsStateWithLifecycle()
 
     val homeTab by viewModel.homeSelectedTab.collectAsStateWithLifecycle()
     val homeSearchQuery by viewModel.homeSearchQuery.collectAsStateWithLifecycle()
     val isRefreshingStatus by viewModel.isRefreshingStatus.collectAsStateWithLifecycle()
     val checkingProgress by viewModel.checkingProgress.collectAsStateWithLifecycle()
     val feedbackMessage by viewModel.refreshFeedbackMessage.collectAsStateWithLifecycle()
-    val showAddAppDialog by viewModel.showAddAppDialog.collectAsStateWithLifecycle()
+    val isLoadingNextPage by viewModel.isLoadingNextPage.collectAsStateWithLifecycle()
+    val checkingProjectIds by viewModel.checkingProjectIds.collectAsStateWithLifecycle()
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
 
-    val currentRole = userSession?.role ?: "DEVELOPER"
     val activeContract = contracts.find { it.id == selectedContractId } ?: contracts.firstOrNull()
 
+    val isLoggedIn = currentScreen != AppScreen.Initializing && currentScreen != AppScreen.Login
+    val isEdgeToEdge = currentScreen is AppScreen.Login || currentScreen is AppScreen.Home
+
+    // Automatically sync user profile name and isolated apps when logged in
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            val email = userSession?.email?.takeIf { it.isNotBlank() } ?: viewModel.getUserEmail()
+            if (email.isNotBlank()) {
+                viewModel.loadUserData(context, email)
+            }
+        }
+    }
+
     Scaffold(
-        containerColor = Color.White,
+        containerColor = if (isEdgeToEdge) Color.Transparent else Color.White,
+        contentWindowInsets = if (isEdgeToEdge) androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) else androidx.compose.material3.ScaffoldDefaults.contentWindowInsets,
         topBar = {
-            if (currentScreen != AppScreen.Initializing && currentScreen != AppScreen.Splash && currentScreen != AppScreen.Login && currentScreen != AppScreen.Home && currentScreen != AppScreen.CommunityHub) {
+            if (isLoggedIn && currentScreen != AppScreen.Home) {
+                val emailDisplay = userSession?.email?.takeIf { it.isNotBlank() } ?: viewModel.getUserEmail()
                 DiscordTopBar(
                     title = "AppTrack",
-                    subtitle = if (currentRole == "DEVELOPER") "Developer Workspace • ${contracts.size} Active Contracts"
-                    else "${activeContract?.clientName ?: "Client"} Portal • ${activeContract?.companyName ?: "Live Hub"}",
-                    currentRole = currentRole,
+                    subtitle = "${activeContract?.clientName ?: emailDisplay.substringBefore("@").ifBlank { "Client" }} • ${activeContract?.companyName ?: "Live Hub"}",
+                    currentRole = "CLIENT",
                     unreadNotifs = unreadNotifs,
-                    onRoleClick = { viewModel.setRoleSwitcher(true) },
+                    onRoleClick = { /* client-only, no role switch */ },
                     onNotificationClick = { viewModel.setNotificationCenter(true) }
                 )
             }
@@ -118,11 +122,11 @@ fun AppTrackApp(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .then(if (isEdgeToEdge) Modifier else Modifier.padding(innerPadding))
         ) {
             when (currentScreen) {
                 is AppScreen.Initializing -> {
-                    // Blank smooth transition matching native launch window, prevents any flash of Login
+                    // Blank white screen — session resolving, no flash
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -130,59 +134,38 @@ fun AppTrackApp(
                     )
                 }
 
-                is AppScreen.Splash -> {
-                    SplashScreen(
-                        onSplashComplete = {
-                            viewModel.onSplashComplete()
-                        }
-                    )
-                }
-
                 is AppScreen.Login -> {
                     LoginScreen(
                         contracts = contracts,
                         onLogin = { email, role, contractId ->
-                            viewModel.login(email, role, contractId)
+                            viewModel.login(email, role, contractId, context)
                         }
                     )
                 }
 
                 is AppScreen.Home -> {
                     HomeScreen(
-                        userEmail = userSession?.email ?: "",
-                        userRole = userSession?.role ?: "CLIENT",
+                        userEmail = userSession?.email?.takeIf { it.isNotBlank() } ?: viewModel.getUserEmail(),
+                        userRole = "CLIENT",
                         projects = projects,
                         selectedTab = homeTab,
                         searchQuery = homeSearchQuery,
                         isRefreshing = isRefreshingStatus,
                         checkingProgress = checkingProgress,
                         feedbackMessage = feedbackMessage,
-                        showAddDialog = showAddAppDialog,
-                        onTabSelected = { viewModel.setHomeTab(it) },
+                        showAddDialog = false,
+                        isLoadingNextPage = isLoadingNextPage,
+                        checkingIds = checkingProjectIds,
+                        userName = userName,
+                        onTabSelected = { viewModel.setHomeTab(it, context) },
                         onSearchQueryChange = { viewModel.setHomeSearchQuery(it) },
-                        onRefreshAll = { viewModel.refreshAllAppsStatus(context) },
+                        onRefreshTab = { tab -> viewModel.refreshCurrentTab(category = tab, context = context, isBackground = false) },
+                        onLoadMore = { viewModel.loadNextPage(context) },
                         onCheckSingle = { viewModel.checkSingleApp(it, context) },
-                        onShowAddDialog = { viewModel.setShowAddAppDialog(it) },
-                        onAddNewProject = { title, pkg, cat, iconUrl ->
-                            viewModel.addNewProject(title, pkg, cat, iconUrl, context)
-                        },
+                        onShowAddDialog = { /* client cannot add apps */ },
+                        onAddNewProject = { _, _, _, _ -> /* not available */ },
                         onDismissFeedback = { viewModel.dismissFeedbackMessage() },
                         onLogout = { viewModel.logout() }
-                    )
-                }
-
-                is AppScreen.DevDashboard -> {
-                    DeveloperDashboardScreen(
-                        contracts = contracts,
-                        projects = projects,
-                        selectedContractId = selectedContractId,
-                        selectedCategoryTab = selectedCategoryTab,
-                        onSelectContract = { viewModel.selectContract(it) },
-                        onSelectCategoryTab = { viewModel.setCategoryTab(it) },
-                        onAddContractClick = { viewModel.setAddContractDialog(true) },
-                        onAddProjectClick = { viewModel.setAddProjectDialog(true) },
-                        onMarkLiveClick = { viewModel.setLiveTriggerProject(it) },
-                        onOpenCommunityHub = { viewModel.navigateTo(AppScreen.CommunityHub) }
                     )
                 }
 
@@ -201,70 +184,17 @@ fun AppTrackApp(
                         channels = channels,
                         selectedChannelId = selectedChannelId,
                         messages = channelMessages,
-                        currentRole = currentRole,
+                        currentRole = "CLIENT",
                         onSelectChannel = { viewModel.selectChannel(it) },
                         onSendMessage = { viewModel.sendChatMessage(it) },
-                        onBackClick = {
-                            if (currentRole == "CLIENT") {
-                                viewModel.navigateTo(AppScreen.ClientPortal)
-                            } else {
-                                viewModel.navigateTo(AppScreen.DevDashboard)
-                            }
-                        }
-                    )
-                }
-
-                else -> {
-                    DeveloperDashboardScreen(
-                        contracts = contracts,
-                        projects = projects,
-                        selectedContractId = selectedContractId,
-                        selectedCategoryTab = selectedCategoryTab,
-                        onSelectContract = { viewModel.selectContract(it) },
-                        onSelectCategoryTab = { viewModel.setCategoryTab(it) },
-                        onAddContractClick = { viewModel.setAddContractDialog(true) },
-                        onAddProjectClick = { viewModel.setAddProjectDialog(true) },
-                        onMarkLiveClick = { viewModel.setLiveTriggerProject(it) },
-                        onOpenCommunityHub = { viewModel.navigateTo(AppScreen.CommunityHub) }
+                        onBackClick = { viewModel.navigateTo(AppScreen.ClientPortal) }
                     )
                 }
             }
         }
     }
 
-    // Modal: Live Trigger
-    if (activeLiveProject != null) {
-        LiveTriggerDialog(
-            project = activeLiveProject!!,
-            onDismiss = { viewModel.setLiveTriggerProject(null) },
-            onConfirmLive = { liveUrl, notes ->
-                viewModel.markProjectAsLive(context, activeLiveProject!!, liveUrl, notes)
-            }
-        )
-    }
-
-    // Modal: Celebration & Milestone Receipt
-    if (celebrationData != null) {
-        CelebrationModal(
-            celebration = celebrationData!!,
-            onDismiss = { viewModel.dismissCelebration() }
-        )
-    }
-
-    // Modal: Role Switcher
-    if (showRoleSwitcher) {
-        RoleSwitcherModal(
-            currentRole = currentRole,
-            contracts = contracts,
-            selectedContractId = selectedContractId,
-            onDismiss = { viewModel.setRoleSwitcher(false) },
-            onSelectRole = { newRole, contractId ->
-                viewModel.switchRole(newRole, contractId)
-            }
-        )
-    }
-
-    // Modal: Notification Center
+    // Notification Center Modal
     if (showNotifCenter) {
         NotificationCenterDialog(
             notifications = notifications,
@@ -275,42 +205,4 @@ fun AppTrackApp(
             }
         )
     }
-
-    // Modal: Add Contract
-    if (showAddContract) {
-        AddContractModal(
-            onDismiss = { viewModel.setAddContractDialog(false) },
-            onAddContract = { name, client, email, comp, budget, payout, notes ->
-                viewModel.addContract(name, client, email, comp, budget, payout, notes)
-            }
-        )
-    }
-
-    // Modal: Add Project
-    if (showAddProject) {
-        AddProjectModal(
-            contractId = selectedContractId ?: contracts.firstOrNull()?.id ?: "contract_apex_01",
-            initialCategory = selectedCategoryTab,
-            onDismiss = { viewModel.setAddProjectDialog(false) },
-            onAddProject = { title, cat, plat, pkg, ver, build, payout, notes, iconKey ->
-                viewModel.addProject(
-                    contractId = selectedContractId ?: contracts.firstOrNull()?.id ?: "contract_apex_01",
-                    title = title,
-                    category = cat,
-                    platform = plat,
-                    packageName = pkg,
-                    versionName = ver,
-                    buildNumber = build,
-                    payoutAmount = payout,
-                    releaseNotes = notes,
-                    iconKey = iconKey
-                )
-            }
-        )
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    androidx.compose.material3.Text(text = "Hello $name!", modifier = modifier)
 }

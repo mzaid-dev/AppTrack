@@ -33,16 +33,16 @@ interface ContractDao {
 
 @Dao
 interface ProjectDao {
-    @Query("SELECT * FROM projects ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM projects ORDER BY rowid ASC")
     fun getAllProjects(): Flow<List<ProjectEntity>>
 
-    @Query("SELECT * FROM projects WHERE category = :category ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM projects WHERE category = :category ORDER BY rowid ASC")
     fun getProjectsByCategory(category: String): Flow<List<ProjectEntity>>
 
-    @Query("SELECT * FROM projects WHERE contractId = :contractId ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM projects WHERE contractId = :contractId ORDER BY rowid ASC")
     fun getProjectsByContract(contractId: String): Flow<List<ProjectEntity>>
 
-    @Query("SELECT * FROM projects WHERE contractId = :contractId AND category = :category ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM projects WHERE contractId = :contractId AND category = :category ORDER BY rowid ASC")
     fun getProjectsByContractAndCategory(contractId: String, category: String): Flow<List<ProjectEntity>>
 
     @Query("SELECT * FROM projects WHERE id = :id")
@@ -62,6 +62,9 @@ interface ProjectDao {
 
     @Query("DELETE FROM projects WHERE id = :id")
     suspend fun deleteProject(id: String)
+
+    @Query("DELETE FROM projects")
+    suspend fun clearAllProjects()
 }
 
 @Dao

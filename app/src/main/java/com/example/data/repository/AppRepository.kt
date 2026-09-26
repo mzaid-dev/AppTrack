@@ -48,6 +48,8 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun deleteProject(id: String) = db.projectDao().deleteProject(id)
 
+    suspend fun clearAllProjects() = db.projectDao().clearAllProjects()
+
     // Mark project as LIVE action
     suspend fun publishAndMarkLive(
         project: ProjectEntity,

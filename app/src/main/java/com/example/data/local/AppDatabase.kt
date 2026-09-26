@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "launchpulse_database.db"
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(true)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
@@ -91,196 +91,7 @@ abstract class AppDatabase : RoomDatabase() {
             )
             initialContracts.forEach { db.contractDao().insertContract(it) }
 
-            val initialProjects = listOf(
-                // Live Apps
-                ProjectEntity(
-                    id = "app_spotify",
-                    contractId = contract1Id,
-                    title = "Spotify: Music and Podcasts",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.spotify.music",
-                    versionName = "8.9.12",
-                    buildNumber = 104,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.spotify.music",
-                    payoutMilestoneAmount = 3500.0,
-                    iconKey = "music",
-                    iconUrl = "https://play-lh.googleusercontent.com/P2MD5kuqUVbvMdpQUs7SxDtmNuqu-Pp-IsioENQi9QA"
-                ),
-                ProjectEntity(
-                    id = "app_youtube",
-                    contractId = contract1Id,
-                    title = "YouTube",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.google.android.youtube",
-                    versionName = "19.20.34",
-                    buildNumber = 1420,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.google.android.youtube",
-                    payoutMilestoneAmount = 4000.0,
-                    iconKey = "video",
-                    iconUrl = "https://play-lh.googleusercontent.com/lMoItBgdPPVDJsAq7qRIEKrTFc75WdTNTrTWUh8DUEq2iAyYEuIVzNoV2rV1"
-                ),
-                ProjectEntity(
-                    id = "app_whatsapp",
-                    contractId = contract1Id,
-                    title = "WhatsApp Messenger",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.whatsapp",
-                    versionName = "2.24.11",
-                    buildNumber = 882,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.whatsapp",
-                    payoutMilestoneAmount = 3000.0,
-                    iconKey = "chat"
-                ),
-                ProjectEntity(
-                    id = "app_duolingo",
-                    contractId = contract2Id,
-                    title = "Duolingo: Language Lessons",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.duolingo",
-                    versionName = "5.148.4",
-                    buildNumber = 1622,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.duolingo",
-                    payoutMilestoneAmount = 2800.0,
-                    iconKey = "education"
-                ),
-                ProjectEntity(
-                    id = "app_reddit",
-                    contractId = contract2Id,
-                    title = "Reddit",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.reddit.frontpage",
-                    versionName = "2024.19.0",
-                    buildNumber = 502,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.reddit.frontpage",
-                    payoutMilestoneAmount = 2200.0,
-                    iconKey = "forum"
-                ),
-                ProjectEntity(
-                    id = "app_nova_wallet",
-                    contractId = contract2Id,
-                    title = "Nova Wallet & Crypto Tracker",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.stellar.novawallet",
-                    versionName = "1.1.2",
-                    buildNumber = 33,
-                    status = "NOT LIVE",
-                    liveStoreUrl = "",
-                    payoutMilestoneAmount = 1400.0,
-                    iconKey = "wallet"
-                ),
-                ProjectEntity(
-                    id = "app_apex_playerhub",
-                    contractId = contract1Id,
-                    title = "Apex Player Hub & Companion",
-                    category = "APP",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.apex.playerhub",
-                    versionName = "2.1.0",
-                    buildNumber = 45,
-                    status = "NOT LIVE",
-                    liveStoreUrl = "",
-                    payoutMilestoneAmount = 2000.0,
-                    iconKey = "phone"
-                ),
-
-                // Live & Staging Games
-                ProjectEntity(
-                    id = "game_clash_of_clans",
-                    contractId = contract1Id,
-                    title = "Clash of Clans",
-                    category = "GAME",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.supercell.clashofclans",
-                    versionName = "16.253.25",
-                    buildNumber = 1740,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.supercell.clashofclans",
-                    payoutMilestoneAmount = 5000.0,
-                    iconKey = "gamepad"
-                ),
-                ProjectEntity(
-                    id = "game_subway_surfers",
-                    contractId = contract1Id,
-                    title = "Subway Surfers",
-                    category = "GAME",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.kiloo.subwaysurf",
-                    versionName = "3.28.0",
-                    buildNumber = 980,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.kiloo.subwaysurf",
-                    payoutMilestoneAmount = 4500.0,
-                    iconKey = "rocket"
-                ),
-                ProjectEntity(
-                    id = "game_candy_crush",
-                    contractId = contract2Id,
-                    title = "Candy Crush Saga",
-                    category = "GAME",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.king.candycrushsaga",
-                    versionName = "1.277.0",
-                    buildNumber = 2100,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.king.candycrushsaga",
-                    payoutMilestoneAmount = 4200.0,
-                    iconKey = "gamepad"
-                ),
-                ProjectEntity(
-                    id = "game_roblox",
-                    contractId = contract2Id,
-                    title = "Roblox",
-                    category = "GAME",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.roblox.client",
-                    versionName = "2.628.543",
-                    buildNumber = 543,
-                    status = "LIVE",
-                    liveStoreUrl = "https://play.google.com/store/apps/details?id=com.roblox.client",
-                    payoutMilestoneAmount = 4800.0,
-                    iconKey = "gamepad"
-                ),
-                ProjectEntity(
-                    id = "game_cyberblade",
-                    contractId = contract1Id,
-                    title = "CyberBlade Arena",
-                    category = "GAME",
-                    platform = "GOOGLE_PLAY",
-                    packageName = "com.apex.cyberblade",
-                    versionName = "1.0.4",
-                    buildNumber = 28,
-                    status = "NOT LIVE",
-                    liveStoreUrl = "",
-                    payoutMilestoneAmount = 3000.0,
-                    iconKey = "gamepad"
-                ),
-                ProjectEntity(
-                    id = "game_orbit_drift",
-                    contractId = contract2Id,
-                    title = "Orbit Drift 3D",
-                    category = "GAME",
-                    platform = "CROSS_PLATFORM",
-                    packageName = "com.stellar.orbitdrift",
-                    versionName = "1.0.0",
-                    buildNumber = 12,
-                    status = "NOT LIVE",
-                    liveStoreUrl = "",
-                    payoutMilestoneAmount = 1800.0,
-                    iconKey = "rocket"
-                )
-            )
-            initialProjects.forEach { db.projectDao().insertProject(it) }
+            // Projects are dynamically synced from Firebase Firestore
 
             // Channels
             val channels = listOf(
@@ -363,13 +174,13 @@ abstract class AppDatabase : RoomDatabase() {
             )
             db.notificationDao().insertNotification(notification)
 
-            // User Session
+            // Default User Session (Initial unauthenticated state)
             val session = UserSessionEntity(
                 id = 1,
-                isLoggedIn = true,
-                role = "DEVELOPER",
-                email = "dev@launchpulse.studio",
-                selectedContractId = contract1Id
+                isLoggedIn = false,
+                role = "CLIENT",
+                email = "",
+                selectedContractId = ""
             )
             db.userSessionDao().saveSession(session)
         }
