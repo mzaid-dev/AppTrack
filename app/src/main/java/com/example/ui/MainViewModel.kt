@@ -258,6 +258,10 @@ class MainViewModel(
                     if (paged.projects.isNotEmpty()) {
                         repository.insertProjects(paged.projects)
                     }
+                    // 3. Auto-check Play Store status right after data loads — never leave badges on PENDING
+                    if (paged.projects.isNotEmpty()) {
+                        checkAllTabsStatus()
+                    }
                 }
             } catch (e: Exception) {
                 Log.d("MainViewModel", "Initial sync note: ${e.message}")
@@ -395,7 +399,6 @@ class MainViewModel(
     fun refreshCurrentTab(category: String = _homeSelectedTab.value, context: Context? = null, isBackground: Boolean = false) {
         if (_isRefreshingStatus.value && !isBackground) return
         val targetCategory = if (category.contains("game", ignoreCase = true)) "GAME" else "APP"
-        val currentEmail = getUserEmail()
 
         viewModelScope.launch {
             if (!isBackground) {
@@ -403,44 +406,21 @@ class MainViewModel(
                 _refreshFeedbackMessage.value = null
             }
 
-            var freshlySyncedProjects: List<ProjectEntity>? = null
-
-            // 1. Sync strictly from Firestore for this user (both apps and user profile name)!
-            if (context != null && !isBackground) {
-                try {
-                    loadUserData(context, currentEmail)
-                    val paged = FirebaseProjectSync.fetchPageFromFirestore(
-                        context = context,
-                        pageSize = 50L,
-                        currentUserEmail = currentEmail
-                    )
-                    if (paged != null) {
-                        repository.clearAllProjects()
-                        if (paged.projects.isNotEmpty()) {
-                            repository.insertProjects(paged.projects)
-                        }
-                        freshlySyncedProjects = paged.projects
-                    }
-                } catch (e: Exception) {
-                    Log.d("MainViewModel", "Refresh sync note: ${e.message}")
-                }
-            }
-
-            // 2. Filter ONLY current active tab items! Use freshly synced projects to eliminate async state lag
-            val activeList = freshlySyncedProjects ?: projects.value
-            val tabProjects = activeList.filter { it.category.equals(targetCategory, ignoreCase = true) }
+            // Use ONLY the already-loaded projects from Room — no Firestore sync here.
+            // Refresh button = update badges only, NOT rebuild the list.
+            val tabProjects = projects.value.filter { it.category.equals(targetCategory, ignoreCase = true) }
             if (tabProjects.isEmpty()) {
                 if (!isBackground) _isRefreshingStatus.value = false
                 return@launch
             }
 
-            // 3. Mark current tab items as checking
+            // Mark current tab items as "Checking…"
             if (!isBackground) {
                 _checkingProjectIds.value = tabProjects.map { it.id }.toSet()
                 _checkingProgress.value = Pair(0, tabProjects.size)
             }
 
-            // 4. Parallel check Play Store live status ONLY for current active tab's packages!
+            // Parallel check Play Store live status for every package in this tab
             val packages = tabProjects.map { it.packageName.trim() }
             val resultMap = LiveStatusChecker.checkAllInParallel(packages) { pkg, result, completed, total ->
                 if (!isBackground) {
@@ -450,9 +430,16 @@ class MainViewModel(
                     val matchingProjects = tabProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
                     matchingProjects.forEach { project ->
                         _checkingProjectIds.update { it - project.id }
+                        // CORRECT status mapping — never save PENDING after a check!
+                        val resolvedStatus = when {
+                            result.isLive -> "LIVE"
+                            result.statusText.contains("NOT FOUND", ignoreCase = true) -> "NOT_FOUND"
+                            result.statusText.contains("UNABLE", ignoreCase = true) -> "UNABLE_TO_CHECK"
+                            else -> "NOT_FOUND"
+                        }
                         repository.updateProjectLiveStatus(
                             id = project.id,
-                            status = if (result.isLive) "LIVE" else "PENDING",
+                            status = resolvedStatus,
                             liveUrl = "https://play.google.com/store/apps/details?id=$pkg",
                             timestamp = result.checkedAt
                         )
@@ -460,22 +447,22 @@ class MainViewModel(
                 }
             }
 
-            // Ensure checking IDs for this tab are cleared
+            // Ensure all checking IDs for this tab are cleared
             _checkingProjectIds.update { currentSet -> currentSet - tabProjects.map { it.id }.toSet() }
 
             if (!isBackground) {
                 _isRefreshingStatus.value = false
 
                 val liveCount = resultMap.values.count { it.isLive }
-                val unableCount = resultMap.values.count { it.statusText == "UNABLE TO CHECK" }
-                val notFoundCount = resultMap.values.count { it.statusText == "NOT FOUND" }
+                val unableCount = resultMap.values.count { it.statusText.contains("UNABLE", ignoreCase = true) }
+                val notFoundCount = resultMap.values.count { it.statusText.contains("NOT FOUND", ignoreCase = true) }
                 val tabLabel = if (targetCategory == "GAME") "Games" else "Applications"
                 _refreshFeedbackMessage.value = if (unableCount == 0 && notFoundCount == 0) {
-                    "$tabLabel up to date ($liveCount Live)"
+                    "$tabLabel up to date ✓ ($liveCount Live)"
                 } else {
                     "$tabLabel: $liveCount Live" +
                         (if (unableCount > 0) " • $unableCount Unable to Check" else "") +
-                        (if (notFoundCount > 0) " • $notFoundCount Not Found" else "")
+                        (if (notFoundCount > 0) " • $notFoundCount Not on Store" else "")
                 }
 
                 viewModelScope.launch {
@@ -484,6 +471,50 @@ class MainViewModel(
                         _refreshFeedbackMessage.value = null
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Silently checks ALL tabs (APP + GAME) in the background after data loads.
+     * This ensures badges are never stuck on PENDING after the app opens.
+     * Each item removes itself from checkingProjectIds as it completes — no premature clear.
+     */
+    private fun checkAllTabsStatus() {
+        viewModelScope.launch {
+            // Small delay to let Room flows emit the newly inserted data
+            delay(800)
+            // Both tabs run concurrently — no sequential blocking between APP and GAME
+            listOf("APP", "GAME").forEach { cat ->
+                val tabProjects = projects.value.filter { it.category.equals(cat, ignoreCase = true) }
+                if (tabProjects.isEmpty()) return@forEach
+
+                _checkingProjectIds.update { it + tabProjects.map { p -> p.id }.toSet() }
+
+                val packages = tabProjects.map { it.packageName.trim() }
+                // Each result callback removes only its own ID — no bulk clear that races with pending writes
+                LiveStatusChecker.checkAllInParallel(packages) { pkg, result, _, _ ->
+                    viewModelScope.launch {
+                        val matchingProjects = tabProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
+                        matchingProjects.forEach { project ->
+                            val resolvedStatus = when {
+                                result.isLive -> "LIVE"
+                                result.statusText.contains("NOT FOUND", ignoreCase = true) -> "NOT_FOUND"
+                                result.statusText.contains("UNABLE", ignoreCase = true) -> "UNABLE_TO_CHECK"
+                                else -> "NOT_FOUND"
+                            }
+                            repository.updateProjectLiveStatus(
+                                id = project.id,
+                                status = resolvedStatus,
+                                liveUrl = "https://play.google.com/store/apps/details?id=$pkg",
+                                timestamp = result.checkedAt
+                            )
+                            // Remove AFTER Room write is done — badge clears at the right moment
+                            _checkingProjectIds.update { it - project.id }
+                        }
+                    }
+                }
+                // NOTE: No bulk _checkingProjectIds clear here — each item self-removes above
             }
         }
     }
@@ -502,19 +533,29 @@ class MainViewModel(
         viewModelScope.launch {
             _checkingProjectIds.update { it + project.id }
             val result = LiveStatusChecker.checkAppLive(project.packageName)
-            _checkingProjectIds.update { it - project.id }
+
+            // Map to underscore format that badge logic expects
+            val resolvedStatus = when {
+                result.isLive -> "LIVE"
+                result.statusText.contains("NOT FOUND", ignoreCase = true) -> "NOT_FOUND"
+                result.statusText.contains("UNABLE", ignoreCase = true) -> "UNABLE_TO_CHECK"
+                else -> "NOT_FOUND"
+            }
 
             repository.updateProjectLiveStatus(
                 id = project.id,
-                status = result.statusText,
+                status = resolvedStatus,
                 liveUrl = result.storeUrl,
                 timestamp = result.checkedAt
             )
+            // Remove from checking AFTER Room write — badge shows correct status immediately
+            _checkingProjectIds.update { it - project.id }
+
             if (context != null) {
                 FirebaseProjectSync.syncProjectToFirestore(
                     context,
                     project.copy(
-                        status = result.statusText,
+                        status = resolvedStatus,
                         liveStoreUrl = result.storeUrl,
                         lastCheckedTimestamp = result.checkedAt
                     )
