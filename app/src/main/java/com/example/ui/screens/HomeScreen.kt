@@ -1107,17 +1107,23 @@ fun AppTrackStatusBadge(
             "Live on Play Store",
             StatusLiveGreen
         )
+        isNotFound -> Quadruple(
+            Color(0xFFFFF1F0),
+            Color(0xFFFFCCBB),
+            "Not on Store",
+            Color(0xFFE84B3A)
+        )
         isUnableToCheck -> Quadruple(
             StatusUnableBg,
             StatusUnableBorder,
             "Unable to Check",
             StatusUnableRed
         )
-        isNotFound -> Quadruple(
-            StatusPendingAmberBg,
-            StatusPendingAmberBorder,
-            "NOT FOUND",
-            StatusPendingAmber
+        status.equals("PENDING", ignoreCase = true) -> Quadruple(
+            Color(0xFFF8FAFC),
+            Color(0xFFCBD5E1),
+            "Pending Check",
+            Color(0xFF94A3B8)
         )
         else -> Quadruple(
             Color(0xFFF1F5F9),
