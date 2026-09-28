@@ -130,3 +130,4 @@ Automated builds, lint checks, and signed APK release artifacts are generated on
 Made with ❤️ using **Jetpack Compose** & **Kotlin**
 
 </div>
+------------------------------
