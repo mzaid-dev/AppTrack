@@ -2,126 +2,99 @@
 
 # 📱 AppTrack
 
-**A sleek, production-grade Android client portal for monitoring live store availability, publishing statuses, and application metrics.**
+**Production-grade Android client portal for real-time Google Play Store availability tracking, live status monitoring, and cloud-synchronized catalog management.**
 
-[![Platform](https://img.shields.io/badge/Platform-Android%20(API%2024%2B)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com)
-[![Architecture](https://img.shields.io/badge/Architecture-Clean%20%2F%20MVVM-00599C?style=for-the-badge)](https://developer.android.com/topic/architecture)
-
-<br/>
-
-> **Track all your apps and games in one synchronized place.** Built natively with Kotlin and Jetpack Compose, AppTrack empowers developers and clients to monitor store status, launch metrics, and project health in real-time.
+[![Platform](https://img.shields.io/badge/Platform-Android%20(API%2024%2B)-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com)
+[![Architecture](https://img.shields.io/badge/Architecture-MVVM%20%2B%20Clean-00599C?style=flat-square)](https://developer.android.com/topic/architecture)
 
 </div>
 
 ---
 
-## ✨ Key Highlights
+## ⚡ Highlights
 
-- 📊 **Real-time Live Store Checking**: On-demand and automatic parallel verification against Google Play Store endpoints without rate-limit bottlenecks.
-- 🎮 **Isolated Category Tabs**: Independent segmented control separating **Applications** and **Games** with custom styling, dedicated empty states, and badge counters.
-- ☁️ **Cloud Firestore Synchronization**: Cloud-synchronized client catalog with strict Server-first fetching and local SQLite Room fallback caching.
-- 🎨 **Dynamic Theme-Matched UI**: Royal blue glassmorphic surfaces, responsive empty states, fluid pull-to-refresh animations, and clean adaptive brand glyphs.
-- 🔐 **Zero-Hardcoding Architecture**: Strictly respects backend fields, dynamic image resolvers, and multi-strategy client profile lookups.
-- 📦 **Continuous Delivery Pipeline**: Automated GitHub Actions workflow generating signed release APKs and GitHub releases.
+- **Auto-Audit on Open**: Scans Google Play Store endpoints concurrently across all projects at launch.
+- **Granular Badge Updates**: Status mutations save directly to SQLite Room; badges update in-place without list rebuilds or scroll jumps.
+- **Segmented Tabs**: Independent views and counters for **Apps** and **Games**.
+- **Cloud Sync + Offline First**: Server-first Cloud Firestore fetch with instant offline Room caching.
+- **Direct Store Launcher**: One-tap intent to view live apps directly on Google Play Store.
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## 🏷️ Status Badges
+
+| Badge | State | Description |
+| :--- | :---: | :--- |
+| 🟢 **Live on Play Store** | `LIVE` | App is publicly indexed and available on Google Play. |
+| 🟠 **Not on Store** | `NOT_FOUND` | Store returned 404 or "Item not found" (unreleased / delisted). |
+| 🔴 **Unable to Check** | `UNABLE_TO_CHECK` | Network timeout, DNS failure, or connection error. |
+| ⚪ **Pending Check** | `PENDING` | Initial state awaiting verification. |
+| 🔵 **Checking…** | *Transient* | Active background coroutine scanning the store. |
+
+---
+
+## 🏗️ Architecture
 
 ```mermaid
-graph TD
-    UI[Jetpack Compose UI\nHomeScreen / LoginScreen] --> VM[MainViewModel\nStateFlow + Coroutines]
+graph LR
+    UI[Jetpack Compose UI] --> VM[MainViewModel]
     VM --> Repo[AppRepository]
-    Repo --> Local[Room Database\nProjectDao + SQLite Cache]
-    Repo --> Remote[FirebaseProjectSync\nCloud Firestore API]
-    Repo --> Checker[LiveStatusChecker\nOkHttp3 Parallel Store Scanner]
-    Remote --> Firestore[(Cloud Firestore\n'apps' & 'users' collections)]
-    Checker --> PlayStore((Google Play Store))
+    Repo --> Room[(Room SQLite)]
+    Repo --> Firestore[(Cloud Firestore)]
+    Repo --> Checker[LiveStatusChecker]
+    Checker --> PlayStore((Google Play))
 ```
 
-| Layer | Technologies |
-| :--- | :--- |
-| **Language & Concurrency** | Kotlin 2.0, Coroutines, StateFlow, Channel |
-| **Presentation (UI)** | Jetpack Compose, Material 3, Navigation, AnimatedVisibility |
-| **Architecture** | Clean Architecture, MVVM, Single Source of Truth pattern |
-| **Local Persistence** | Android Room Database, KSP, SQLite |
-| **Backend & Sync** | Firebase Cloud Firestore, Firebase Authentication |
-| **Networking** | OkHttp3, Retrofit2, Coil (Async Image Loading) |
-| **Build & CI/CD** | Gradle Kotlin DSL (`build.gradle.kts`), GitHub Actions |
+- **UI**: Jetpack Compose + Material 3 with reactive `StateFlow`.
+- **Data**: Single Source of Truth via Room SQLite database.
+- **Sync**: Server-first Firestore query scoped to `currentUserEmail`.
+- **Verifier**: Parallel OkHttp3 scanner with mobile Android User-Agent.
 
 ---
 
-## 🗄️ Firestore Database Schema
+## 🗄️ Firestore Schema
 
-AppTrack syncs seamlessly with Google Cloud Firestore using two primary collections:
-
-### 1. `apps` Collection
-Stores applications and games tracked by the system.
-
-| Field Name | Type | Description |
+### `apps` Collection
+| Field | Type | Description |
 | :--- | :--- | :--- |
-| `title` | `string` | Display name of the application (e.g., `"CaloZen"`). |
-| `packageName` | `string` | Unique Android package identifier (e.g., `"com.zenith.calozen.nutrition"`). |
-| `category` | `string` | Category type: `"APP"` or `"GAME"`. |
-| `userEmail` | `string` | Email of the assigned user/client for strict isolation. |
-| `status` *(optional)* | `string` | `"LIVE"` or `"PENDING"`. Automatically verified against Play Store. |
-| `iconUrl` *(optional)* | `string` | Public image URL for the app icon. Falls back to theme glyph if blank. |
+| `title` | `string` | App display name |
+| `packageName` | `string` | Unique package ID (`com.example.app`) |
+| `category` | `string` | `"APP"` or `"GAME"` |
+| `userEmail` | `string` | Client owner email for access control |
+| `status` | `string` | `"LIVE"`, `"NOT_FOUND"`, `"PENDING"`, `"UNABLE_TO_CHECK"` |
+| `iconUrl` | `string` *(optional)* | Custom icon URL (falls back to theme glyph) |
+| `liveStoreUrl` | `string` *(optional)* | Direct Play Store link |
+| `lastCheckedTimestamp` | `number` | Unix timestamp of last verification |
 
-### 2. `users` Collection
-Stores profile metadata for authenticated clients.
-
-| Field Name | Type | Description |
-| :--- | :--- | :--- |
-| `email` | `string` | User login email (e.g., `"client@example.com"`). |
-| `name` | `string` | Full display name shown on greeting header (e.g., `"Malik Yaqoob"`). |
-| `role` | `string` | User authorization role (e.g., `"CLIENT"`). |
+### `users` Collection
+`email` (`string`), `name` (`string`), `role` (`string`).
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### Prerequisites
+### 1. Prerequisites
+- Android Studio Ladybug (2024.2.1+) & JDK 17+
+- Add `google-services.json` to `app/`
 
-- **Android Studio**: Ladybug (2024.2.1) or newer
-- **JDK**: Version 17+
-- **Android SDK**: API 35/36 installed
+### 2. Build Commands
+```bash
+# Debug APK
+./gradlew assembleDebug
 
-### Installation & Run
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/mzaid-dev/AppTrack.git
-   cd AppTrack
-   ```
-
-2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Add Firebase configuration:**
-   Place your project's `google-services.json` inside the `app/` folder.
-
-4. **Assemble & Install:**
-   ```bash
-   # Build debug APK
-   ./gradlew assembleDebug
-
-   # Or build signed release APK
-   ./gradlew assembleRelease
-   ```
+# Release APK
+./gradlew assembleRelease
+```
 
 ---
 
-## 📦 CI/CD & Automated Releases
+## 🌿 Git Workflow
 
-Automated builds, lint checks, and signed APK release artifacts are generated on push to `main` via the GitHub Actions pipeline:
-
-- Workflow definition: [`.github/workflows/release.yml`](.github/workflows/release.yml)
-- Artifacts: Downloadable `app-release.apk` with automated release notes and tags.
+- **`develop`**: Active integration branch for all features and fixes.
+- **`main`**: Production releases. Pushing to `main` triggers automated CI/CD signed APK builds.
 
 ---
 
@@ -130,4 +103,3 @@ Automated builds, lint checks, and signed APK release artifacts are generated on
 Made with ❤️ using **Jetpack Compose** & **Kotlin**
 
 </div>
-------------------------------

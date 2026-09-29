@@ -257,14 +257,18 @@ class MainViewModel(
                     repository.clearAllProjects()
                     if (paged.projects.isNotEmpty()) {
                         repository.insertProjects(paged.projects)
+                        // Auto-check Play Store status immediately with fetched projects
+                        checkAllTabsStatus(paged.projects)
                     }
-                    // 3. Auto-check Play Store status right after data loads — never leave badges on PENDING
-                    if (paged.projects.isNotEmpty()) {
-                        checkAllTabsStatus()
-                    }
+                } else if (projects.value.isNotEmpty()) {
+                    // Fallback to checking cached projects if offline or network unavailable
+                    checkAllTabsStatus(projects.value)
                 }
             } catch (e: Exception) {
                 Log.d("MainViewModel", "Initial sync note: ${e.message}")
+                if (projects.value.isNotEmpty()) {
+                    checkAllTabsStatus(projects.value)
+                }
             }
         }
     }
@@ -414,20 +418,39 @@ class MainViewModel(
                 return@launch
             }
 
-            // Mark current tab items as "Checking…"
+            // Separate valid and invalid package names
+            val validProjects = tabProjects.filter { it.packageName.trim().isNotBlank() }
+            val invalidProjects = tabProjects.filter { it.packageName.trim().isBlank() }
+
+            // Immediately mark blank package names as NOT_FOUND so they never hang
+            invalidProjects.forEach { inv ->
+                repository.updateProjectLiveStatus(
+                    id = inv.id,
+                    status = "NOT_FOUND",
+                    liveUrl = "",
+                    timestamp = System.currentTimeMillis()
+                )
+            }
+
+            if (validProjects.isEmpty()) {
+                if (!isBackground) _isRefreshingStatus.value = false
+                return@launch
+            }
+
+            // Mark valid tab items as "Checking…"
             if (!isBackground) {
-                _checkingProjectIds.value = tabProjects.map { it.id }.toSet()
-                _checkingProgress.value = Pair(0, tabProjects.size)
+                _checkingProjectIds.value = validProjects.map { it.id }.toSet()
+                _checkingProgress.value = Pair(0, validProjects.size)
             }
 
             // Parallel check Play Store live status for every package in this tab
-            val packages = tabProjects.map { it.packageName.trim() }
+            val packages = validProjects.map { it.packageName.trim() }
             val resultMap = LiveStatusChecker.checkAllInParallel(packages) { pkg, result, completed, total ->
                 if (!isBackground) {
                     _checkingProgress.value = Pair(completed, total)
                 }
                 viewModelScope.launch {
-                    val matchingProjects = tabProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
+                    val matchingProjects = validProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
                     matchingProjects.forEach { project ->
                         _checkingProjectIds.update { it - project.id }
                         // CORRECT status mapping — never save PENDING after a check!
@@ -480,22 +503,43 @@ class MainViewModel(
      * This ensures badges are never stuck on PENDING after the app opens.
      * Each item removes itself from checkingProjectIds as it completes — no premature clear.
      */
-    private fun checkAllTabsStatus() {
+    fun checkAllTabsStatus(projectsToCheck: List<ProjectEntity>? = null) {
         viewModelScope.launch {
-            // Small delay to let Room flows emit the newly inserted data
-            delay(800)
+            val projectList = if (projectsToCheck != null && projectsToCheck.isNotEmpty()) {
+                projectsToCheck
+            } else {
+                delay(600)
+                projects.value
+            }
+            if (projectList.isEmpty()) return@launch
+
             // Both tabs run concurrently — no sequential blocking between APP and GAME
             listOf("APP", "GAME").forEach { cat ->
-                val tabProjects = projects.value.filter { it.category.equals(cat, ignoreCase = true) }
+                val tabProjects = projectList.filter { it.category.equals(cat, ignoreCase = true) }
                 if (tabProjects.isEmpty()) return@forEach
 
-                _checkingProjectIds.update { it + tabProjects.map { p -> p.id }.toSet() }
+                val validProjects = tabProjects.filter { it.packageName.trim().isNotBlank() }
+                val invalidProjects = tabProjects.filter { it.packageName.trim().isBlank() }
 
-                val packages = tabProjects.map { it.packageName.trim() }
+                // Immediately resolve blank package names so they never get stuck on Checking
+                invalidProjects.forEach { inv ->
+                    repository.updateProjectLiveStatus(
+                        id = inv.id,
+                        status = "NOT_FOUND",
+                        liveUrl = "",
+                        timestamp = System.currentTimeMillis()
+                    )
+                }
+
+                if (validProjects.isEmpty()) return@forEach
+
+                _checkingProjectIds.update { it + validProjects.map { p -> p.id }.toSet() }
+
+                val packages = validProjects.map { it.packageName.trim() }
                 // Each result callback removes only its own ID — no bulk clear that races with pending writes
                 LiveStatusChecker.checkAllInParallel(packages) { pkg, result, _, _ ->
                     viewModelScope.launch {
-                        val matchingProjects = tabProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
+                        val matchingProjects = validProjects.filter { it.packageName.trim().equals(pkg, ignoreCase = true) }
                         matchingProjects.forEach { project ->
                             val resolvedStatus = when {
                                 result.isLive -> "LIVE"
@@ -514,7 +558,6 @@ class MainViewModel(
                         }
                     }
                 }
-                // NOTE: No bulk _checkingProjectIds clear here — each item self-removes above
             }
         }
     }
@@ -530,9 +573,22 @@ class MainViewModel(
      * Checks a single app's live status on Play Store.
      */
     fun checkSingleApp(project: ProjectEntity, context: Context? = null) {
+        val cleanPkg = project.packageName.trim()
+        if (cleanPkg.isBlank()) {
+            viewModelScope.launch {
+                repository.updateProjectLiveStatus(
+                    id = project.id,
+                    status = "NOT_FOUND",
+                    liveUrl = "",
+                    timestamp = System.currentTimeMillis()
+                )
+            }
+            return
+        }
+
         viewModelScope.launch {
             _checkingProjectIds.update { it + project.id }
-            val result = LiveStatusChecker.checkAppLive(project.packageName)
+            val result = LiveStatusChecker.checkAppLive(cleanPkg)
 
             // Map to underscore format that badge logic expects
             val resolvedStatus = when {
