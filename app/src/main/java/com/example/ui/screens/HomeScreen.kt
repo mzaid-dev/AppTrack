@@ -902,7 +902,12 @@ fun AppTrackRow(
 ) {
     val isLive = project.status.equals("LIVE", ignoreCase = true)
     val isUnableToCheck = project.status.equals("UNABLE_TO_CHECK", ignoreCase = true)
+        || project.status.contains("UNABLE", ignoreCase = true)
     val isNotFound = project.status.equals("NOT_FOUND", ignoreCase = true)
+        || project.status.equals("NOT LIVE", ignoreCase = true)
+        || project.status.equals("NOT_LIVE", ignoreCase = true)
+        || project.status.equals("NOT FOUND", ignoreCase = true)
+        || project.status.equals("OFFLINE", ignoreCase = true)
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -957,7 +962,7 @@ fun AppTrackRow(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Action Button: Capsule "View ↗"
+            // Action Button: Capsule "View ↗", "Retry 🔄", or "Check 🔄"
             if (isLive) {
                 Surface(
                     shape = CircleShape,
@@ -994,7 +999,7 @@ fun AppTrackRow(
                     border = androidx.compose.foundation.BorderStroke(1.dp, StatusUnableBorder),
                     modifier = Modifier
                         .clip(CircleShape)
-                        .clickable { onRetry() }
+                        .clickable(enabled = !isChecking) { onRetry() }
                         .testTag("retry_btn_${project.id}")
                 ) {
                     Row(
@@ -1012,6 +1017,35 @@ fun AppTrackRow(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Retry check",
                             tint = StatusUnableRed,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                }
+            } else {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFF8FAFC),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(enabled = !isChecking) { onRetry() }
+                        .testTag("check_btn_${project.id}")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Check",
+                            color = Color(0xFF64748B),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Check live status",
+                            tint = Color(0xFF64748B),
                             modifier = Modifier.size(13.dp)
                         )
                     }
