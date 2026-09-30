@@ -72,8 +72,19 @@ object FirebaseProjectSync {
         }
 
         val category = if (rawCategory.contains("game", ignoreCase = true) || title.contains("game", ignoreCase = true)) "GAME" else "APP"
-        // Default to PENDING until checked against Play Store (never assume LIVE)
-        val rawStatus = doc.getString("status")?.takeIf { it.isNotBlank() } ?: "PENDING"
+        // Standardize status representation across all aliases
+        val rawStatus = when (val s = doc.getString("status")?.trim()) {
+            null, "" -> "PENDING"
+            else -> when {
+                s.equals("LIVE", ignoreCase = true) -> "LIVE"
+                s.equals("NOT FOUND", ignoreCase = true) || s.equals("NOT_FOUND", ignoreCase = true) ||
+                s.equals("NOT LIVE", ignoreCase = true) || s.equals("NOT_LIVE", ignoreCase = true) ||
+                s.equals("OFFLINE", ignoreCase = true) -> "NOT_FOUND"
+                s.equals("UNABLE_TO_CHECK", ignoreCase = true) || s.contains("UNABLE", ignoreCase = true) -> "UNABLE_TO_CHECK"
+                s.equals("PENDING", ignoreCase = true) -> "PENDING"
+                else -> s.uppercase()
+            }
+        }
         val iconUrl = doc.getString("iconUrl") ?: doc.getString("icon") ?: ""
         val iconKey = doc.getString("iconKey") ?: (if (category == "GAME") "gamepad" else "phone")
         val liveStoreUrl = doc.getString("liveStoreUrl")?.takeIf { it.isNotBlank() }
@@ -179,7 +190,11 @@ object FirebaseProjectSync {
                 "lastCheckedTimestamp" to project.lastCheckedTimestamp,
                 "updatedAt" to System.currentTimeMillis()
             )
-            firestore.collection("projects").document(project.id).set(data, SetOptions.merge()).await()
+            // Primary collection per schema
+            firestore.collection("apps").document(project.id).set(data, SetOptions.merge()).await()
+            try {
+                firestore.collection("projects").document(project.id).set(data, SetOptions.merge()).await()
+            } catch (ignored: Exception) {}
         } catch (e: Exception) {
             Log.d("FirebaseSync", "Sync to firestore skipped: ${e.message}")
         }
