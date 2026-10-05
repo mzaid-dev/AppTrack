@@ -4,11 +4,11 @@
 
 **Production-grade Android client portal for real-time Google Play Store availability tracking, live status monitoring, and cloud-synchronized catalog management.**
 
-[![Platform](https://img.shields.io/badge/Platform-Android%20(API%2024%2B)-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com)
-[![Architecture](https://img.shields.io/badge/Architecture-MVVM%20%2B%20Clean-00599C?style=flat-square)](https://developer.android.com/topic/architecture)
+[![Platform](https://img.shields.io/badge/Platform-Android_24%2B-10B981?style=flat&logo=android&logoColor=white&labelColor=0F172A)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-8B5CF6?style=flat&logo=kotlin&logoColor=white&labelColor=0F172A)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Compose-Material_3-3B82F6?style=flat&logo=jetpackcompose&logoColor=white&labelColor=0F172A)](https://developer.android.com/jetpack/compose)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth_%26_Firestore-F59E0B?style=flat&logo=firebase&logoColor=white&labelColor=0F172A)](https://firebase.google.com)
+[![Architecture](https://img.shields.io/badge/Architecture-Clean_%2F_MVVM-6366F1?style=flat&logo=googlecloud&logoColor=white&labelColor=0F172A)](https://developer.android.com/topic/architecture)
 
 </div>
 
@@ -28,11 +28,11 @@
 
 | Badge | State | Description |
 | :--- | :---: | :--- |
-| 🟢 **Live on Play Store** | `LIVE` | App is publicly indexed and available on Google Play. |
-| 🟠 **Not on Store** | `NOT_FOUND` | Store returned 404 or "Item not found" (unreleased / delisted). |
-| 🔴 **Unable to Check** | `UNABLE_TO_CHECK` | Network timeout, DNS failure, or connection error. |
-| ⚪ **Pending Check** | `PENDING` | Initial state awaiting verification. |
-| 🔵 **Checking…** | *Transient* | Active background coroutine scanning the store. |
+| ![Live on Play Store](https://img.shields.io/badge/Live_on_Play_Store-10B981?style=flat&logo=googleplay&logoColor=white) | `LIVE` | App is publicly indexed and available on Google Play. |
+| ![Not on Store](https://img.shields.io/badge/Not_on_Store-E84B3A?style=flat&logo=googleplay&logoColor=white) | `NOT_FOUND` | Store returned 404 or "Item not found" (unreleased / delisted). |
+| ![Unable to Check](https://img.shields.io/badge/Unable_to_Check-EF4444?style=flat) | `UNABLE_TO_CHECK` | Network timeout, DNS failure, or connection error. |
+| ![Pending Check](https://img.shields.io/badge/Pending_Check-94A3B8?style=flat) | `PENDING` | Initial state awaiting verification. |
+| ![Checking](https://img.shields.io/badge/Checking…-3B82F6?style=flat) | *Transient* | Active background coroutine scanning the store. |
 
 ---
 
